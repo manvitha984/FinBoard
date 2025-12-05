@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import AddWidgetModal from "@/components/AddWidgetModal";
+import CacheControl from "@/components/CacheControl";
 import { useDashboardStore } from "@/store/dashboardStore";
 
 import {
@@ -17,7 +18,6 @@ import {
   SortableContext,
   useSortable,
   rectSortingStrategy,
-  arrayMove,
 } from "@dnd-kit/sortable";
 
 import { CSS } from "@dnd-kit/utilities";
@@ -38,7 +38,6 @@ function SortableItem({ widget }: any) {
       style={style}
       {...attributes}
       {...listeners}
-      className="h-full"
     >
       <WidgetCard widget={widget} />
     </div>
@@ -55,6 +54,11 @@ export default function DashboardPage() {
       activationConstraint: { distance: 8 },
     })
   );
+
+  // Separate widgets by type
+  const cardWidgets = widgets.filter((w) => w.displayMode === "card");
+  const tableWidgets = widgets.filter((w) => w.displayMode === "table");
+  const chartWidgets = widgets.filter((w) => w.displayMode === "chart");
 
   function handleDragEnd(event: any) {
     const { active, over } = event;
@@ -95,28 +99,57 @@ export default function DashboardPage() {
         collisionDetection={closestCenter}
         onDragEnd={handleDragEnd}
       >
-        <SortableContext items={widgets.map((w) => w.id)} strategy={rectSortingStrategy}>
-          <div
-            className="
-              grid
-              grid-cols-1
-              sm:grid-cols-2
-              lg:grid-cols-3
-              xl:grid-cols-4
-              gap-6
-              auto-rows-[minmax(180px,auto)]
-            "
-          >
-            {widgets.map((widget) => (
-              <SortableItem key={widget.id} widget={widget} />
-            ))}
-          </div>
-        </SortableContext>
+        <div className="space-y-6">
+          {/* Card Widgets Row */}
+          {cardWidgets.length > 0 && (
+            <div>
+              <h2 className="text-lg font-semibold mb-3 text-gray-300">📋 Quick Metrics</h2>
+              <SortableContext items={cardWidgets.map((w) => w.id)} strategy={rectSortingStrategy}>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                  {cardWidgets.map((widget) => (
+                    <SortableItem key={widget.id} widget={widget} />
+                  ))}
+                </div>
+              </SortableContext>
+            </div>
+          )}
+
+          {/* Chart Widgets Row */}
+          {chartWidgets.length > 0 && (
+            <div>
+              <h2 className="text-lg font-semibold mb-3 text-gray-300">📈 Charts</h2>
+              <SortableContext items={chartWidgets.map((w) => w.id)} strategy={rectSortingStrategy}>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  {chartWidgets.map((widget) => (
+                    <SortableItem key={widget.id} widget={widget} />
+                  ))}
+                </div>
+              </SortableContext>
+            </div>
+          )}
+
+          {/* Table Widgets - Each in its own row */}
+          {tableWidgets.length > 0 && (
+            <div>
+              <h2 className="text-lg font-semibold mb-3 text-gray-300">📊 Data Tables</h2>
+              <SortableContext items={tableWidgets.map((w) => w.id)} strategy={rectSortingStrategy}>
+                <div className="space-y-4">
+                  {tableWidgets.map((widget) => (
+                    <SortableItem key={widget.id} widget={widget} />
+                  ))}
+                </div>
+              </SortableContext>
+            </div>
+          )}
+        </div>
 
         <DragOverlay />
       </DndContext>
 
       <AddWidgetModal isOpen={open} onClose={() => setOpen(false)} />
+      
+      {/* Adaptive Cache Control - Bottom Right Corner */}
+      <CacheControl />
     </div>
   );
 }

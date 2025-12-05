@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { WidgetConfig } from "@/types/widget";
+import { cacheControl } from "@/utils/apiClient";
 
 interface DashboardState {
   widgets: WidgetConfig[];
@@ -12,7 +13,7 @@ interface DashboardState {
 
 export const useDashboardStore = create<DashboardState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       widgets: [],
       addWidget: (w) =>
         set((s) => {
@@ -23,7 +24,25 @@ export const useDashboardStore = create<DashboardState>()(
           return { widgets: [normalized, ...s.widgets] };
         }),
       removeWidget: (id) =>
-        set((s) => ({ widgets: s.widgets.filter((w) => w.id !== id) })),
+        set((s) => {
+          // Find the widget being removed
+          const widgetToRemove = s.widgets.find((w) => w.id === id);
+          
+          if (widgetToRemove) {
+            // Check if any other widgets use the same API URL
+            const otherWidgetsUsingApi = s.widgets.filter(
+              (w) => w.apiUrl === widgetToRemove.apiUrl && w.id !== id
+            );
+            
+            // If no other widgets use this API, clear its cache
+            if (otherWidgetsUsingApi.length === 0) {
+              cacheControl.invalidate(widgetToRemove.apiUrl);
+              console.log(`🗑️ Auto-cleared cache for: ${widgetToRemove.apiUrl}`);
+            }
+          }
+          
+          return { widgets: s.widgets.filter((w) => w.id !== id) };
+        }),
       updateWidget: (id, patch) =>
         set((s) => ({
           widgets: s.widgets.map((w) => {

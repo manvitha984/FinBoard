@@ -1,0 +1,240 @@
+// utils/adaptiveCache.ts
+
+export interface DataSnapshot {
+  hash: string;
+  timestamp: number;
+  value: any;
+}
+
+export interface APIProfile {
+  url: string;
+  updateFrequency: number | null; 
+  samples: DataSnapshot[];
+  lastCheck: number;
+  confidence: number; 
+  isRealtime: boolean;
+  recommendedTTL: number;
+}
+
+export class AdaptiveCache {
+  private cache: Map<string, any> = new Map();
+  private apiProfiles: Map<string, APIProfile> = new Map();
+  private expirations: Map<string, number> = new Map();
+  
+  private readonly MIN_SAMPLES = 5; 
+  private readonly MAX_SAMPLES = 20; 
+  private readonly MIN_TTL = 5 * 1000;
+  private readonly MAX_TTL = 24 * 60 * 60 * 1000; 
+  private readonly DEFAULT_TTL = 60 * 1000;
+ 
+  get(url: string): any | null {
+    const cached = this.cache.get(url);
+    const expiration = this.expirations.get(url);
+
+    if (!cached || !expiration) {
+      return null;
+    }
+
+    if (Date.now() > expiration) {
+      this.cache.delete(url);
+      this.expirations.delete(url);
+      console.log(`⏰ Cache expired for ${this.getShortUrl(url)}`);
+      return null;
+    }
+
+    console.log(`✅ Cache HIT for ${this.getShortUrl(url)}`);
+    return cached;
+  }
+
+ 
+  async set(url: string, data: any): Promise<void> {
+    await this.learnFromData(url, data);
+
+    const ttl = this.getAdaptiveTTL(url);
+
+    this.cache.set(url, data);
+    this.expirations.set(url, Date.now() + ttl);
+
+    console.log(
+      `💾 Cache SET for ${this.getShortUrl(url)} (TTL: ${this.formatDuration(ttl)})`
+    );
+  }
+
+
+  private async learnFromData(url: string, data: any): Promise<void> {
+    const hash = this.hashData(data);
+    const now = Date.now();
+
+    let profile = this.apiProfiles.get(url);
+    if (!profile) {
+      profile = {
+        url,
+        updateFrequency: null,
+        samples: [],
+        lastCheck: now,
+        confidence: 0,
+        isRealtime: false,
+        recommendedTTL: this.DEFAULT_TTL,
+      };
+      this.apiProfiles.set(url, profile);
+    }
+
+    profile.samples.push({ hash, timestamp: now, value: data });
+
+    if (profile.samples.length > this.MAX_SAMPLES) {
+      profile.samples = profile.samples.slice(-this.MAX_SAMPLES);
+    }
+
+    if (profile.samples.length >= this.MIN_SAMPLES) {
+      this.analyzeUpdatePattern(profile);
+    }
+
+    profile.lastCheck = now;
+  }
+
+ 
+  private analyzeUpdatePattern(profile: APIProfile): void {
+    const { samples } = profile;
+    const changes: number[] = [];
+
+    for (let i = 1; i < samples.length; i++) {
+      if (samples[i].hash !== samples[i - 1].hash) {
+        const timeDiff = samples[i].timestamp - samples[i - 1].timestamp;
+        changes.push(timeDiff);
+      }
+    }
+
+    if (changes.length === 0) {
+      profile.updateFrequency = null;
+      profile.isRealtime = false;
+      profile.recommendedTTL = this.MAX_TTL;
+      profile.confidence = 90;
+      console.log(`📊 ${this.getShortUrl(profile.url)}: STATIC data detected`);
+      return;
+    }
+
+    const avgInterval = changes.reduce((a, b) => a + b, 0) / changes.length;
+
+    const variance =
+      changes.reduce((sum, val) => sum + Math.pow(val - avgInterval, 2), 0) /
+      changes.length;
+    const stdDev = Math.sqrt(variance);
+    const coefficientOfVariation = stdDev / avgInterval;
+
+    profile.isRealtime = avgInterval < 60 * 1000; 
+
+    profile.confidence = Math.max(0, Math.min(100, 100 - coefficientOfVariation * 100));
+
+    profile.updateFrequency = avgInterval;
+
+    let recommendedTTL = Math.floor(avgInterval * 0.8);
+
+    recommendedTTL = Math.max(this.MIN_TTL, Math.min(this.MAX_TTL, recommendedTTL));
+
+    profile.recommendedTTL = recommendedTTL;
+
+    console.log(
+      `🧠 ${this.getShortUrl(profile.url)}: ` +
+        `Updates every ${this.formatDuration(avgInterval)} ` +
+        `(confidence: ${profile.confidence.toFixed(0)}%) ` +
+        `→ TTL: ${this.formatDuration(recommendedTTL)}`
+    );
+  }
+
+  
+  private getAdaptiveTTL(url: string): number {
+    const profile = this.apiProfiles.get(url);
+
+    if (!profile) {
+      return this.DEFAULT_TTL;
+    }
+
+   
+    if (profile.confidence > 70) {
+      return profile.recommendedTTL;
+    }
+
+    if (profile.isRealtime) {
+      return this.MIN_TTL;
+    }
+
+    return this.DEFAULT_TTL;
+  }
+
+ 
+  private hashData(data: any): string {
+    try {
+      const str = JSON.stringify(data);
+      let hash = 0;
+      for (let i = 0; i < str.length; i++) {
+        const char = str.charCodeAt(i);
+        hash = (hash << 5) - hash + char;
+        hash = hash & hash; 
+      }
+      return hash.toString(36);
+    } catch {
+      return Math.random().toString(36);
+    }
+  }
+
+ 
+  private getShortUrl(url: string): string {
+    try {
+      const urlObj = new URL(url);
+      return urlObj.hostname + urlObj.pathname.substring(0, 20);
+    } catch {
+      return url.substring(0, 40);
+    }
+  }
+
+ 
+  private formatDuration(ms: number): string {
+    if (ms < 1000) return `${ms}ms`;
+    if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`;
+    if (ms < 3600000) return `${(ms / 60000).toFixed(1)}m`;
+    if (ms < 86400000) return `${(ms / 3600000).toFixed(1)}h`;
+    return `${(ms / 86400000).toFixed(1)}d`;
+  }
+
+
+  invalidate(url: string): void {
+    this.cache.delete(url);
+    this.expirations.delete(url);
+    console.log(`🗑️ Cache invalidated for ${this.getShortUrl(url)}`);
+  }
+
+ 
+  clear(): void {
+    this.cache.clear();
+    this.expirations.clear();
+    console.log('🗑️ All cache cleared');
+  }
+
+ 
+  getProfile(url: string): APIProfile | null {
+    return this.apiProfiles.get(url) || null;
+  }
+
+
+  getAllProfiles(): APIProfile[] {
+    return Array.from(this.apiProfiles.values());
+  }
+
+  
+  getStats() {
+    return {
+      cacheSize: this.cache.size,
+      trackedAPIs: this.apiProfiles.size,
+      profiles: this.getAllProfiles().map((p) => ({
+        url: this.getShortUrl(p.url),
+        pattern: p.isRealtime ? 'Realtime' : p.updateFrequency ? 'Periodic' : 'Static',
+        updateFrequency: p.updateFrequency ? this.formatDuration(p.updateFrequency) : 'N/A',
+        ttl: this.formatDuration(p.recommendedTTL),
+        confidence: `${p.confidence.toFixed(0)}%`,
+        samples: p.samples.length,
+      })),
+    };
+  }
+}
+
+export const adaptiveCache = new AdaptiveCache();

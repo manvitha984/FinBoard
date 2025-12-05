@@ -5,6 +5,7 @@ import { WidgetConfig } from "@/types/widget";
 import { fetchJson } from "@/utils/apiClient";
 import { normalizeData } from "@/utils/dataMapper";
 import { startPolling } from "@/utils/polling";
+import { adaptiveCache } from "@/utils/adaptiveCache";
 import TableWidget from "./TableWidget";
 import ChartWidget from "./ChartWidget";
 import EditWidgetModal from "./EditWidgetModal";
@@ -51,6 +52,9 @@ export default function WidgetCard({ widget }: { widget: WidgetConfig }) {
   const [errorMsg, setErrorMsg] = useState<string>("");
   const [lastUpdated, setLastUpdated] = useState<string>("");
   const [openEdit, setOpenEdit] = useState(false);
+  const [isCached, setIsCached] = useState(false);
+  const [isLearning, setIsLearning] = useState(false);
+  const [cacheTTL, setCacheTTL] = useState<number>(0);
 
   const updateWidget = useDashboardStore((s) => s.updateWidget);
   const removeWidget = useDashboardStore((s) => s.removeWidget);
@@ -61,6 +65,16 @@ export default function WidgetCard({ widget }: { widget: WidgetConfig }) {
     try {
       setStatus("loading");
       const result = await fetchJson(widget.apiUrl);
+      
+      // Update cache status
+      setIsCached(result.cached || false);
+      setIsLearning(result.learningMode || false);
+      
+      // Get cache profile info
+      const profile = adaptiveCache.getProfile(widget.apiUrl);
+      if (profile) {
+        setCacheTTL(Math.round(profile.recommendedTTL / 1000));
+      }
       
       if (!result.ok) {
         setStatus("error");
@@ -115,50 +129,96 @@ export default function WidgetCard({ widget }: { widget: WidgetConfig }) {
 
   return (
     <>
-      <div className="bg-[#0f172a] rounded-xl p-4 border border-gray-700 shadow-lg h-full flex flex-col">
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2">
-            {widget.displayMode === "table" && <span className="text-xl">📊</span>}
-            {widget.displayMode === "chart" && <span className="text-xl">📈</span>}
-            {widget.displayMode === "card" && <span className="text-xl">📋</span>}
-            <h3 className="font-semibold text-white truncate">{widget.name}</h3>
+      <div className="bg-[#0f172a] rounded-xl border border-gray-700 shadow-lg h-full flex flex-col overflow-hidden">
+        {/* Header Section */}
+        <div className="px-4 py-3 border-b border-gray-700/50 bg-gradient-to-r from-gray-800/50 to-transparent">
+          <div className="flex items-center justify-between gap-3">
+            {/* Left: Icon + Title */}
+            <div className="flex items-center gap-2 min-w-0 flex-1">
+              {widget.displayMode === "table" && <span className="text-lg">📊</span>}
+              {widget.displayMode === "chart" && <span className="text-lg">📈</span>}
+              {widget.displayMode === "card" && <span className="text-lg">💳</span>}
+              <h3 className="font-semibold text-white truncate text-sm">{widget.name}</h3>
+            </div>
+
+            {/* Right: Actions */}
+            <div className="flex items-center gap-1.5 flex-shrink-0" ref={actionsRef}>
+              <button
+                className="p-1.5 rounded-lg hover:bg-gray-700/50 text-gray-400 hover:text-white transition-colors text-sm"
+                onClick={fetchData}
+                disabled={status === "loading"}
+                title="Refresh now"
+              >
+                <span className={status === "loading" ? "animate-spin inline-block" : ""}>
+                  🔄
+                </span>
+              </button>
+              <button
+                className="p-1.5 rounded-lg hover:bg-gray-700/50 text-gray-400 hover:text-white transition-colors text-sm"
+                onClick={() => setOpenEdit(true)}
+                title="Edit widget"
+              >
+                ⚙️
+              </button>
+              <button
+                className="p-1.5 rounded-lg hover:bg-red-900/30 text-red-400 hover:text-red-300 transition-colors text-sm"
+                onClick={() => removeWidget(widget.id)}
+                title="Delete widget"
+              >
+                🗑️
+              </button>
+            </div>
           </div>
 
-          <div className="flex items-center gap-2" ref={actionsRef}>
-            <div className="text-xs text-gray-400 px-2 py-1 bg-gray-800 rounded">
-              {widget.refreshSeconds}s
+          {/* Status Bar - Right below header */}
+          <div className="flex items-center justify-between mt-2 text-xs">
+            <div className="flex items-center gap-2">
+              {/* Cache Status */}
+              {isLearning && (
+                <span 
+                  className="inline-flex items-center gap-1 px-2 py-0.5 bg-purple-500/10 text-purple-400 rounded-md border border-purple-500/20"
+                  title="Cache is learning this API's update pattern"
+                >
+                  <span className="w-1.5 h-1.5 rounded-full bg-purple-400 animate-pulse"></span>
+                  Learning Pattern
+                </span>
+              )}
+              {isCached && !isLearning && (
+                <span 
+                  className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-500/10 text-emerald-400 rounded-md border border-emerald-500/20"
+                  title="Data served from cache - no API call needed"
+                >
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                  From Cache
+                </span>
+              )}
             </div>
-            <button
-              className="p-2 rounded hover:bg-gray-700 text-gray-400"
-              onClick={fetchData}
-              disabled={status === "loading"}
-              title="Refresh now"
-            >
-              <span className={status === "loading" ? "animate-spin inline-block" : ""}>
-                🔄
+
+            {/* Refresh Interval */}
+            <div className="flex items-center gap-2">
+              {isCached && cacheTTL > 0 && (
+                <span 
+                  className="text-gray-500" 
+                  title={`Cache expires in ${cacheTTL} seconds`}
+                >
+                  Expires {cacheTTL}s
+                </span>
+              )}
+              <span className="text-gray-400" title="Widget refresh interval">
+                ⟳ {widget.refreshSeconds}s
               </span>
-            </button>
-            <button
-              className="p-2 rounded hover:bg-gray-700 text-gray-400"
-              onClick={() => setOpenEdit(true)}
-              title="Edit widget"
-            >
-              ⚙️
-            </button>
-            <button
-              className="p-2 rounded hover:bg-gray-700 text-red-400"
-              onClick={() => removeWidget(widget.id)}
-              title="Delete widget"
-            >
-              🗑️
-            </button>
+            </div>
           </div>
         </div>
 
-        <div className="flex-1 min-h-0 overflow-auto">
+        {/* Content Section */}
+        <div className="flex-1 min-h-0 overflow-auto p-4">
           {status === "loading" && (
             <div className="flex items-center justify-center h-full">
-              <div className="text-gray-400">Loading...</div>
+              <div className="flex flex-col items-center gap-3">
+                <div className="w-8 h-8 border-3 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                <div className="text-gray-400 text-sm">Loading...</div>
+              </div>
             </div>
           )}
 
@@ -167,7 +227,7 @@ export default function WidgetCard({ widget }: { widget: WidgetConfig }) {
               <div className="text-4xl">⚠️</div>
               <div className="text-red-400 text-sm text-center">{errorMsg}</div>
               <button
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded text-sm"
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm transition-colors"
                 onClick={fetchData}
               >
                 Retry
@@ -182,9 +242,12 @@ export default function WidgetCard({ widget }: { widget: WidgetConfig }) {
                   {(widget.card?.fields || widget.fields || []).map((field) => {
                     const val = getByPath(data, field);
                     return (
-                      <div key={field} className="flex justify-between items-center p-2 bg-gray-800 rounded">
-                        <span className="text-sm text-gray-300 font-mono truncate">{field}</span>
-                        <span className="text-white font-semibold ml-2">
+                      <div 
+                        key={field} 
+                        className="flex justify-between items-center p-2.5 bg-gray-800/50 rounded-lg border border-gray-700/50 hover:border-gray-600/50 transition-colors"
+                      >
+                        <span className="text-xs text-gray-400 font-mono truncate">{field}</span>
+                        <span className="text-white font-semibold ml-2 text-sm">
                           {val !== undefined && val !== null
                             ? typeof val === "object"
                               ? JSON.stringify(val).slice(0, 50)
@@ -210,8 +273,10 @@ export default function WidgetCard({ widget }: { widget: WidgetConfig }) {
 
         {/* Footer */}
         {lastUpdated && (
-          <div className="mt-3 text-xs text-gray-500 text-right">
-            Last updated: {lastUpdated}
+          <div className="px-4 py-2 border-t border-gray-700/50 bg-gray-800/30">
+            <div className="text-xs text-gray-500 text-right">
+              Updated {lastUpdated}
+            </div>
           </div>
         )}
       </div>

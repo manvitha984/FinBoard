@@ -213,22 +213,46 @@ export default function AddWidgetModal({ isOpen, onClose }: AddWidgetModalProps)
   );
 
   useEffect(() => {
-    if (!rawJson || !tableArrayPath) {
-      setTableAvailableColumns([]);
-      setTableSelectedColumns([]);
-      return;
-    }
+  if (!rawJson || !tableArrayPath) {
+    setTableAvailableColumns([]);
+    setTableSelectedColumns([]);
+    return;
+  }
 
-    const sampleRow = getTableSampleRow(rawJson, tableArrayPath);
-    const keys = sampleRow ? Object.keys(sampleRow) : [];
-    setTableAvailableColumns(keys);
-    setTableSelectedColumns((prev) => {
-      if (!keys.length) return [];
-      const stillValid = prev.filter((k) => keys.includes(k));
-      if (stillValid.length) return stillValid;
-      return keys;
+  const sampleRow = getTableSampleRow(rawJson, tableArrayPath);
+  
+  // Define custom column order for consistency
+  let keys: string[] = [];
+  if (sampleRow) {
+    const allKeys = Object.keys(sampleRow);
+    
+    // Prioritize common columns in a logical order
+    const priorityKeys = ['key', 'symbol', 'date', 'name', 'id'];
+    const orderedKeys: string[] = [];
+    
+    // Add priority keys first (if they exist)
+    priorityKeys.forEach(pk => {
+      if (allKeys.includes(pk)) {
+        orderedKeys.push(pk);
+      }
     });
-  }, [rawJson, tableArrayPath]);
+    
+    // Add remaining keys in alphabetical order
+    const remainingKeys = allKeys
+      .filter(k => !priorityKeys.includes(k))
+      .sort();
+    
+    keys = [...orderedKeys, ...remainingKeys];
+  }
+  
+  setTableAvailableColumns(keys);
+  setTableSelectedColumns((prev) => {
+    if (!keys.length) return [];
+    const stillValid = prev.filter((k) => keys.includes(k));
+    if (stillValid.length) return stillValid;
+    return keys;
+  });
+}, [rawJson, tableArrayPath]);
 
   if (!isOpen) return null;
 

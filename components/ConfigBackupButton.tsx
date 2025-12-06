@@ -12,14 +12,12 @@ export default function ConfigBackupButton() {
     const store = useDashboardStore.getState();
     
     if (mode === "replace") {
-      // Clear all existing widgets
       const currentWidgets = [...store.widgets];
       currentWidgets.forEach((w) => {
         store.removeWidget(w.id);
       });
     }
 
-    // Add imported widgets
     importedWidgets.forEach((widget) => {
       store.addWidget(widget);
     });

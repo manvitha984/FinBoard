@@ -10,23 +10,19 @@ export interface BackupConfig {
 class ConfigBackup {
   private readonly VERSION = "1.0.0";
 
-  /**
-   * Export dashboard configuration to JSON
-   */
+
   exportConfig(widgets: WidgetConfig[]): string {
     const backup: BackupConfig = {
       version: this.VERSION,
       exportDate: new Date().toISOString(),
       widgetCount: widgets.length,
-      widgets: JSON.parse(JSON.stringify(widgets)), // Deep copy
+      widgets: JSON.parse(JSON.stringify(widgets)), 
     };
 
     return JSON.stringify(backup, null, 2);
   }
 
-  /**
-   * Export configuration as downloadable file
-   */
+ 
   downloadConfig(widgets: WidgetConfig[], filename?: string): void {
     const json = this.exportConfig(widgets);
     const blob = new Blob([json], { type: "application/json" });
@@ -40,14 +36,11 @@ class ConfigBackup {
     URL.revokeObjectURL(url);
   }
 
-  /**
-   * Import configuration from JSON
-   */
+ 
   importConfig(jsonString: string): { success: boolean; widgets?: WidgetConfig[]; error?: string } {
     try {
       const backup: BackupConfig = JSON.parse(jsonString);
 
-      // Validate backup format
       if (!backup.version || !Array.isArray(backup.widgets)) {
         return {
           success: false,
@@ -55,7 +48,6 @@ class ConfigBackup {
         };
       }
 
-      // Check version compatibility
       if (!this.isVersionCompatible(backup.version)) {
         return {
           success: false,
@@ -63,7 +55,6 @@ class ConfigBackup {
         };
       }
 
-      // Validate widgets
       const validatedWidgets = this.validateWidgets(backup.widgets);
       if (validatedWidgets.invalid.length > 0) {
         console.warn(
@@ -84,9 +75,7 @@ class ConfigBackup {
     }
   }
 
-  /**
-   * Import configuration from file
-   */
+ 
   async importFromFile(file: File): Promise<{ success: boolean; widgets?: WidgetConfig[]; error?: string }> {
     return new Promise((resolve) => {
       const reader = new FileReader();
@@ -115,11 +104,8 @@ class ConfigBackup {
     });
   }
 
-  /**
-   * Merge imported widgets with existing ones
-   */
+ 
   mergeWidgets(existing: WidgetConfig[], imported: WidgetConfig[]): WidgetConfig[] {
-    // Add timestamp to imported widgets to avoid ID conflicts
     const newWidgets = imported.map((w) => ({
       ...w,
       id: `${w.id}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
@@ -129,9 +115,7 @@ class ConfigBackup {
     return [...newWidgets, ...existing];
   }
 
-  /**
-   * Replace all widgets with imported ones
-   */
+ 
   replaceWidgets(imported: WidgetConfig[]): WidgetConfig[] {
     return imported.map((w) => ({
       ...w,
@@ -139,9 +123,7 @@ class ConfigBackup {
     }));
   }
 
-  /**
-   * Get detailed backup info
-   */
+ 
   getBackupInfo(jsonString: string): { valid: boolean; info?: BackupConfig; error?: string } {
     try {
       const backup: BackupConfig = JSON.parse(jsonString);
@@ -156,9 +138,7 @@ class ConfigBackup {
     }
   }
 
-  /**
-   * Create a backup snapshot for auto-save
-   */
+ 
   createSnapshot(widgets: WidgetConfig[]): string {
     return JSON.stringify({
       version: this.VERSION,
@@ -167,9 +147,7 @@ class ConfigBackup {
     });
   }
 
-  /**
-   * Restore from snapshot
-   */
+
   restoreFromSnapshot(snapshot: string): WidgetConfig[] | null {
     try {
       const data = JSON.parse(snapshot);
@@ -179,9 +157,7 @@ class ConfigBackup {
     }
   }
 
-  // Private helper methods
   private isVersionCompatible(backupVersion: string): boolean {
-    // Simple semver check: major version must match
     const [backupMajor] = backupVersion.split(".");
     const [appMajor] = this.VERSION.split(".");
     return backupMajor === appMajor;
@@ -193,13 +169,11 @@ class ConfigBackup {
 
     widgets.forEach((w, idx) => {
       try {
-        // Check required fields
         if (!w.id || !w.name || !w.apiUrl || !w.displayMode || w.refreshSeconds === undefined) {
           invalid.push({ index: idx, widget: w, reason: "Missing required fields" });
           return;
         }
 
-        // Validate displayMode
         if (!["card", "table", "chart"].includes(w.displayMode)) {
           invalid.push({ index: idx, widget: w, reason: "Invalid displayMode" });
           return;

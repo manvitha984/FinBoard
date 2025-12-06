@@ -226,18 +226,15 @@ export default function AddWidgetModal({ isOpen, onClose }: AddWidgetModalProps)
   if (sampleRow) {
     const allKeys = Object.keys(sampleRow);
     
-    // Prioritize common columns in a logical order
     const priorityKeys = ['key', 'symbol', 'date', 'name', 'id'];
     const orderedKeys: string[] = [];
     
-    // Add priority keys first (if they exist)
     priorityKeys.forEach(pk => {
       if (allKeys.includes(pk)) {
         orderedKeys.push(pk);
       }
     });
     
-    // Add remaining keys in alphabetical order
     const remainingKeys = allKeys
       .filter(k => !priorityKeys.includes(k))
       .sort();

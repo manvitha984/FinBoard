@@ -13,7 +13,6 @@ import EditWidgetModal from "./EditWidgetModal";
 function getByPath(obj: any, path: string) {
   if (!path) return obj;
   
-  // Handle array notation like data[0].close or data[].close (for first element)
   const parts = path.split(".");
   let current = obj;
 
@@ -22,7 +21,6 @@ function getByPath(obj: any, path: string) {
 
     let part = parts[i];
 
-    // Check for array index notation (e.g., "data[0]" or "data[]")
     const arrayMatch = part.match(/^(\w+)\[(\d*)\]$/);
     if (arrayMatch) {
       const key = arrayMatch[1];
@@ -61,30 +59,6 @@ function detectApiError(data: any): string | null {
   return null;
 }
 
-function isNestedCurrencyData(obj: any): boolean {
-  // Check if object looks like {bitcoin: {usd: X, eur: Y}, ethereum: {...}}
-  if (!obj || typeof obj !== "object" || Array.isArray(obj)) return false;
-  
-  const entries = Object.entries(obj);
-  if (entries.length === 0) return false;
-  
-  // Check first entry - value should be an object with currency-like keys
-  const firstValue = entries[0][1];
-  if (typeof firstValue !== "object" || firstValue === null || Array.isArray(firstValue)) {
-    return false;
-  }
-  
-  const valueKeys = Object.keys(firstValue);
-  const currencyPatterns = ["usd", "eur", "gbp", "jpy", "inr", "cad", "aud", "chf"];
-  
-  // Check if keys contain currency codes or 24h_change patterns
-  return valueKeys.some(k => 
-    currencyPatterns.some(curr => k.toLowerCase().includes(curr)) ||
-    k.toLowerCase().includes("24h") ||
-    k.toLowerCase().includes("change")
-  );
-}
-
 function formatLabel(field: string): string {
   return field
     .replace(/^data\[\d*\]\./, "")
@@ -99,12 +73,9 @@ function formatLabel(field: string): string {
 
 function formatValue(val: any): string {
   if (typeof val === "number") {
-    // Format numbers with appropriate decimal places
     if (val % 1 !== 0) {
-      // If it has decimals, show up to 4 decimal places
       return parseFloat(val.toFixed(4)).toString();
     }
-    // Format large numbers with commas
     return val.toLocaleString();
   }
   if (typeof val === "object") {
@@ -122,6 +93,8 @@ export default function WidgetCard({ widget }: { widget: WidgetConfig }) {
   const [isCached, setIsCached] = useState(false);
   const [isLearning, setIsLearning] = useState(false);
   const [cacheTTL, setCacheTTL] = useState<number>(0);
+  const [requestCount, setRequestCount] = useState<number>(0);
+  const [isRateLimited, setIsRateLimited] = useState(false);
 
   const updateWidget = useDashboardStore((s) => s.updateWidget);
   const removeWidget = useDashboardStore((s) => s.removeWidget);
@@ -133,11 +106,15 @@ export default function WidgetCard({ widget }: { widget: WidgetConfig }) {
       setStatus("loading");
       const result = await fetchJson(widget.apiUrl);
       
-      // Update cache status
       setIsCached(result.cached || false);
       setIsLearning(result.learningMode || false);
       
-      // Get cache profile info
+      // Update rate limit info
+      if (result.quotaInfo) {
+        setRequestCount(result.quotaInfo.requestCount);
+        setIsRateLimited(result.quotaInfo.isThrottled || false);
+      }
+      
       const profile = adaptiveCache.getProfile(widget.apiUrl);
       if (profile) {
         setCacheTTL(Math.round(profile.recommendedTTL / 1000));
@@ -208,7 +185,6 @@ export default function WidgetCard({ widget }: { widget: WidgetConfig }) {
               <h3 className="font-semibold text-white truncate text-sm">{widget.name}</h3>
             </div>
 
-            {/* Right: Actions */}
             <div className="flex items-center gap-1.5 flex-shrink-0" ref={actionsRef}>
               <button
                 className="p-1.5 rounded-lg hover:bg-gray-700/50 text-gray-400 hover:text-white transition-colors text-sm"
@@ -237,10 +213,8 @@ export default function WidgetCard({ widget }: { widget: WidgetConfig }) {
             </div>
           </div>
 
-          {/* Status Bar - Right below header */}
           <div className="flex items-center justify-between mt-2 text-xs">
             <div className="flex items-center gap-2">
-              {/* Cache Status */}
               {isLearning && (
                 <span 
                   className="inline-flex items-center gap-1 px-2 py-0.5 bg-purple-500/10 text-purple-400 rounded-md border border-purple-500/20"
@@ -250,7 +224,7 @@ export default function WidgetCard({ widget }: { widget: WidgetConfig }) {
                   Learning Pattern
                 </span>
               )}
-              {isCached && !isLearning && (
+              {isCached && !isLearning && !isRateLimited && (
                 <span 
                   className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-500/10 text-emerald-400 rounded-md border border-emerald-500/20"
                   title="Data served from cache - no API call needed"
@@ -259,9 +233,17 @@ export default function WidgetCard({ widget }: { widget: WidgetConfig }) {
                   From Cache
                 </span>
               )}
+              {isRateLimited && (
+                <span 
+                  className="inline-flex items-center gap-1 px-2 py-0.5 bg-red-500/10 text-red-400 rounded-md border border-red-500/20"
+                  title="Rate limited - using cached data"
+                >
+                  <span className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse"></span>
+                  Rate Limited (From Cache)
+                </span>
+              )}
             </div>
 
-            {/* Refresh Interval */}
             <div className="flex items-center gap-2">
               {isCached && cacheTTL > 0 && (
                 <span 
@@ -278,7 +260,6 @@ export default function WidgetCard({ widget }: { widget: WidgetConfig }) {
           </div>
         </div>
 
-        {/* Content Section */}
         <div className="flex-1 min-h-0 overflow-auto p-4">
           {status === "loading" && (
             <div className="flex items-center justify-center h-full">
@@ -309,13 +290,11 @@ export default function WidgetCard({ widget }: { widget: WidgetConfig }) {
                   {(() => {
                     let fieldsToDisplay = widget.card?.fields || widget.fields || [];
                     
-                    // If no fields specified and data is an array, auto-detect from first row
                     if (fieldsToDisplay.length === 0 && Array.isArray(data.data) && data.data.length > 0) {
                       const firstRow = data.data[0];
                       fieldsToDisplay = Object.keys(firstRow).filter(
-                        key => key !== "date" // Skip date, show it first
+                        key => key !== "date" 
                       );
-                      // Add date at the beginning
                       if (firstRow.date) {
                         fieldsToDisplay = ["date", ...fieldsToDisplay];
                       }
@@ -324,7 +303,6 @@ export default function WidgetCard({ widget }: { widget: WidgetConfig }) {
                     return fieldsToDisplay.map((field) => {
                       const val = getByPath(data, field);
                       
-                      // Skip null/undefined values
                       if (val === undefined || val === null) return null;
                       
                       return (
@@ -361,6 +339,7 @@ export default function WidgetCard({ widget }: { widget: WidgetConfig }) {
           <div className="px-4 py-2 border-t border-gray-700/50 bg-gray-800/30">
             <div className="text-xs text-gray-500 text-right">
               Updated {lastUpdated}
+              {requestCount > 0 && ` • API Calls: ${requestCount}`}
             </div>
           </div>
         )}

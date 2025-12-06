@@ -40,14 +40,12 @@ function deepNormalize(value: any): any {
   return coerceValue(value);
 }
 
-// Helper: Check if data looks like OHLCV time-series
 function isOHLCVTimeSeries(input: any): boolean {
   if (!input || typeof input !== "object" || Array.isArray(input)) return false;
   
   const keys = Object.keys(input);
   if (keys.length < 2) return false;
 
-  // Check if majority of keys look like dates
   const dateKeys = keys.filter(
     (k) =>
       /^\d{4}-\d{2}-\d{2}/.test(k) ||
@@ -57,7 +55,6 @@ function isOHLCVTimeSeries(input: any): boolean {
   
   if (dateKeys.length === 0 || dateKeys.length < keys.length * 0.5) return false;
 
-  // Check if values are objects with OHLCV-like keys
   const sampleValue = input[dateKeys[0]];
   if (!sampleValue || typeof sampleValue !== "object" || Array.isArray(sampleValue))
     return false;
@@ -65,7 +62,6 @@ function isOHLCVTimeSeries(input: any): boolean {
   const valueKeys = Object.keys(sampleValue).map((k) => k.toLowerCase());
   const ohlcvPatterns = ["open", "high", "low", "close", "volume"];
   
-  // Count how many OHLCV patterns we find
   const matchCount = valueKeys.filter((k) =>
     ohlcvPatterns.some((pattern) => k.includes(pattern.substring(0, 3)))
   ).length;
@@ -88,12 +84,10 @@ const alphaVantageAdapter: Adapter = {
     );
   },
   normalize: (input) => {
-    // If it's an AlphaVantage time-series with OHLCV, handle it specially
     const keys = Object.keys(input);
     const timeSeriesKey = keys.find((k) => /^Time Series/.test(k));
     
     if (timeSeriesKey && isOHLCVTimeSeries(input[timeSeriesKey])) {
-      // Extract the time-series data and flatten it
       const timeSeries = input[timeSeriesKey];
       const rows: any[] = [];
       
@@ -181,7 +175,6 @@ const graphqlAdapter: Adapter = {
   },
 };
 
-// OHLCV Time-Series Adapter for raw nested OHLCV data
 const ohlcvTimeSeriesAdapter: Adapter = {
   name: "ohlcv_timeseries",
   detect: (input) => {
@@ -259,8 +252,8 @@ const universalAdapter: Adapter = {
 };
 
 export const adapters: Adapter[] = [
-  alphaVantageAdapter,     // Handles AlphaVantage + OHLCV conversion
-  ohlcvTimeSeriesAdapter,  // Direct OHLCV detection (before generic time-series)
+  alphaVantageAdapter,     
+  ohlcvTimeSeriesAdapter,  
   coinbaseAdapter,
   graphqlAdapter,
   restApiAdapter,

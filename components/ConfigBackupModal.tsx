@@ -66,7 +66,6 @@ export default function ConfigBackupModal({
         return;
       }
 
-      // Show preview
       const backupInfoResult = configBackup.getBackupInfo(
         await file.text()
       );
@@ -74,7 +73,6 @@ export default function ConfigBackupModal({
         setBackupInfo(backupInfoResult.info);
       }
 
-      // Confirm import
       const confirmMessage =
         importMode === "merge"
           ? `Merge ${result.widgets.length} widget(s) with existing ${widgets.length} widget(s)?`
@@ -107,7 +105,6 @@ export default function ConfigBackupModal({
       });
     }
 
-    // Reset file input
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
@@ -116,7 +113,6 @@ export default function ConfigBackupModal({
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-[#0f172a] rounded-xl border border-gray-700 shadow-2xl max-w-md w-full">
-        {/* Header */}
         <div className="px-6 py-4 border-b border-gray-700/50 bg-gradient-to-r from-gray-800/50 to-transparent">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold text-white flex items-center gap-2">
@@ -131,9 +127,7 @@ export default function ConfigBackupModal({
           </div>
         </div>
 
-        {/* Content */}
         <div className="px-6 py-6 space-y-6">
-          {/* Export Section */}
           <div>
             <h3 className="text-sm font-semibold text-gray-300 mb-3 flex items-center gap-2">
               📤 Export Configuration
@@ -149,10 +143,8 @@ export default function ConfigBackupModal({
             </button>
           </div>
 
-          {/* Divider */}
           <div className="border-t border-gray-700/50"></div>
 
-          {/* Import Section */}
           <div>
             <h3 className="text-sm font-semibold text-gray-300 mb-3 flex items-center gap-2">
               📥 Import Configuration
@@ -161,7 +153,6 @@ export default function ConfigBackupModal({
               Upload a previously exported configuration file.
             </p>
 
-            {/* Import Mode Selector */}
             <div className="space-y-2 mb-4">
               <label className="flex items-center gap-3 cursor-pointer">
                 <input
@@ -206,7 +197,6 @@ export default function ConfigBackupModal({
             </button>
           </div>
 
-          {/* Backup Info Preview */}
           {backupInfo && (
             <div className="bg-gray-800/50 rounded-lg p-4 border border-gray-700/50">
               <h4 className="text-xs font-semibold text-gray-300 mb-2">Backup Info</h4>
@@ -218,7 +208,6 @@ export default function ConfigBackupModal({
             </div>
           )}
 
-          {/* Status Messages */}
           {importStatus.type !== "idle" && (
             <div
               className={`p-3 rounded-lg text-sm text-center font-medium ${
@@ -234,7 +223,6 @@ export default function ConfigBackupModal({
           )}
         </div>
 
-        {/* Footer */}
         <div className="px-6 py-4 border-t border-gray-700/50 bg-gray-800/30 rounded-b-xl">
           <button
             onClick={onClose}

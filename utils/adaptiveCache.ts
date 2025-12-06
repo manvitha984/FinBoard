@@ -1,4 +1,5 @@
-// utils/adaptiveCache.ts
+const CACHE_STORAGE_KEY = 'finboard_cache';
+const PROFILE_STORAGE_KEY = 'finboard_cache_profiles';
 
 export interface DataSnapshot {
   hash: string;
@@ -8,25 +9,94 @@ export interface DataSnapshot {
 
 export interface APIProfile {
   url: string;
-  updateFrequency: number | null; 
+  updateFrequency: number | null;
   samples: DataSnapshot[];
   lastCheck: number;
-  confidence: number; 
+  confidence: number;
   isRealtime: boolean;
   recommendedTTL: number;
+}
+
+interface CacheEntry {
+  data: any;
+  expiration: number;
 }
 
 export class AdaptiveCache {
   private cache: Map<string, any> = new Map();
   private apiProfiles: Map<string, APIProfile> = new Map();
   private expirations: Map<string, number> = new Map();
-  
-  private readonly MIN_SAMPLES = 5; 
-  private readonly MAX_SAMPLES = 20; 
+
+  private readonly MIN_SAMPLES = 5;
+  private readonly MAX_SAMPLES = 20;
   private readonly MIN_TTL = 5 * 1000;
-  private readonly MAX_TTL = 24 * 60 * 60 * 1000; 
+  private readonly MAX_TTL = 24 * 60 * 60 * 1000;
   private readonly DEFAULT_TTL = 60 * 1000;
+
+  constructor() {
+    this.loadFromStorage();
+  }
+
  
+  private loadFromStorage(): void {
+    if (typeof window === 'undefined') return;
+
+    try {
+      const savedCache = localStorage.getItem(CACHE_STORAGE_KEY);
+      if (savedCache) {
+        const data = JSON.parse(savedCache) as Record<string, CacheEntry>;
+        const now = Date.now();
+
+        Object.entries(data).forEach(([url, entry]) => {
+          this.cache.set(url, entry.data);
+          this.expirations.set(url, entry.expiration);
+        });
+        console.log(`📦 Loaded ${this.cache.size} cached items from storage`);
+      }
+
+      const savedProfiles = localStorage.getItem(PROFILE_STORAGE_KEY);
+      if (savedProfiles) {
+        const profiles = JSON.parse(savedProfiles) as Record<string, APIProfile>;
+        Object.entries(profiles).forEach(([url, profile]) => {
+          this.apiProfiles.set(url, profile);
+        });
+        console.log(`📊 Loaded ${this.apiProfiles.size} API profiles from storage`);
+      }
+    } catch (err) {
+      console.warn('Failed to load cache from storage:', err);
+    }
+  }
+
+  
+  private saveToStorage(): void {
+    if (typeof window === 'undefined') return;
+
+    try {
+      const cacheData: Record<string, CacheEntry> = {};
+      this.cache.forEach((data, url) => {
+        const expiration = this.expirations.get(url) || Date.now() + this.DEFAULT_TTL;
+        cacheData[url] = { data, expiration };
+      });
+      localStorage.setItem(CACHE_STORAGE_KEY, JSON.stringify(cacheData));
+
+      const profileData: Record<string, APIProfile> = {};
+      this.apiProfiles.forEach((profile, url) => {
+        profileData[url] = {
+          ...profile,
+          samples: profile.samples.slice(-5).map(s => ({
+            hash: s.hash,
+            timestamp: s.timestamp,
+            value: null, 
+          })),
+        };
+      });
+      localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(profileData));
+    } catch (err) {
+      console.warn('Failed to save cache to storage:', err);
+    }
+  }
+
+  
   get(url: string): any | null {
     const cached = this.cache.get(url);
     const expiration = this.expirations.get(url);
@@ -36,8 +106,6 @@ export class AdaptiveCache {
     }
 
     if (Date.now() > expiration) {
-      this.cache.delete(url);
-      this.expirations.delete(url);
       console.log(`⏰ Cache expired for ${this.getShortUrl(url)}`);
       return null;
     }
@@ -46,7 +114,16 @@ export class AdaptiveCache {
     return cached;
   }
 
- 
+
+  getEvenIfExpired(url: string): any | null {
+    const cached = this.cache.get(url);
+    if (cached) {
+      console.log(`📦 Using expired cache as fallback for ${this.getShortUrl(url)}`);
+    }
+    return cached || null;
+  }
+
+
   async set(url: string, data: any): Promise<void> {
     await this.learnFromData(url, data);
 
@@ -55,11 +132,12 @@ export class AdaptiveCache {
     this.cache.set(url, data);
     this.expirations.set(url, Date.now() + ttl);
 
+    this.saveToStorage();
+
     console.log(
       `💾 Cache SET for ${this.getShortUrl(url)} (TTL: ${this.formatDuration(ttl)})`
     );
   }
-
 
   private async learnFromData(url: string, data: any): Promise<void> {
     const hash = this.hashData(data);
@@ -92,7 +170,6 @@ export class AdaptiveCache {
     profile.lastCheck = now;
   }
 
- 
   private analyzeUpdatePattern(profile: APIProfile): void {
     const { samples } = profile;
     const changes: number[] = [];
@@ -121,7 +198,7 @@ export class AdaptiveCache {
     const stdDev = Math.sqrt(variance);
     const coefficientOfVariation = stdDev / avgInterval;
 
-    profile.isRealtime = avgInterval < 60 * 1000; 
+    profile.isRealtime = avgInterval < 60 * 1000;
 
     profile.confidence = Math.max(0, Math.min(100, 100 - coefficientOfVariation * 100));
 
@@ -141,7 +218,6 @@ export class AdaptiveCache {
     );
   }
 
-  
   private getAdaptiveTTL(url: string): number {
     const profile = this.apiProfiles.get(url);
 
@@ -149,7 +225,6 @@ export class AdaptiveCache {
       return this.DEFAULT_TTL;
     }
 
-   
     if (profile.confidence > 70) {
       return profile.recommendedTTL;
     }
@@ -161,7 +236,6 @@ export class AdaptiveCache {
     return this.DEFAULT_TTL;
   }
 
- 
   private hashData(data: any): string {
     try {
       const str = JSON.stringify(data);
@@ -169,7 +243,7 @@ export class AdaptiveCache {
       for (let i = 0; i < str.length; i++) {
         const char = str.charCodeAt(i);
         hash = (hash << 5) - hash + char;
-        hash = hash & hash; 
+        hash = hash & hash;
       }
       return hash.toString(36);
     } catch {
@@ -177,7 +251,6 @@ export class AdaptiveCache {
     }
   }
 
- 
   private getShortUrl(url: string): string {
     try {
       const urlObj = new URL(url);
@@ -187,7 +260,6 @@ export class AdaptiveCache {
     }
   }
 
- 
   private formatDuration(ms: number): string {
     if (ms < 1000) return `${ms}ms`;
     if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`;
@@ -196,31 +268,28 @@ export class AdaptiveCache {
     return `${(ms / 86400000).toFixed(1)}d`;
   }
 
-
   invalidate(url: string): void {
     this.cache.delete(url);
     this.expirations.delete(url);
+    this.saveToStorage();
     console.log(`🗑️ Cache invalidated for ${this.getShortUrl(url)}`);
   }
 
- 
   clear(): void {
     this.cache.clear();
     this.expirations.clear();
+    this.saveToStorage();
     console.log('🗑️ All cache cleared');
   }
 
- 
   getProfile(url: string): APIProfile | null {
     return this.apiProfiles.get(url) || null;
   }
-
 
   getAllProfiles(): APIProfile[] {
     return Array.from(this.apiProfiles.values());
   }
 
-  
   getStats() {
     return {
       cacheSize: this.cache.size,

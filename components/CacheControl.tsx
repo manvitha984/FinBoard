@@ -12,7 +12,6 @@ export default function CacheControl() {
     setShowStats(true);
   }
 
-  // Auto-update every 5 seconds when open
   useEffect(() => {
     if (!showStats) return;
     

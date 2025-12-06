@@ -17,6 +17,30 @@ function getByPath(obj: any, path: string) {
   return cur;
 }
 
+function isNestedCurrencyData(obj: any): boolean {
+  // Check if object looks like {bitcoin: {usd: X, eur: Y}, ethereum: {...}}
+  if (!obj || typeof obj !== "object" || Array.isArray(obj)) return false;
+  
+  const entries = Object.entries(obj);
+  if (entries.length === 0) return false;
+  
+  // Check first entry - value should be an object with currency-like keys
+  const firstValue = entries[0][1];
+  if (typeof firstValue !== "object" || firstValue === null || Array.isArray(firstValue)) {
+    return false;
+  }
+  
+  const valueKeys = Object.keys(firstValue);
+  const currencyPatterns = ["usd", "eur", "gbp", "jpy", "inr", "cad", "aud", "chf"];
+  
+  // Check if keys contain currency codes or 24h_change patterns
+  return valueKeys.some(k => 
+    currencyPatterns.some(curr => k.toLowerCase().includes(curr)) ||
+    k.toLowerCase().includes("24h") ||
+    k.toLowerCase().includes("change")
+  );
+}
+
 export default function TableWidget({ data, config }: { data: any; config: TableConfig }) {
   const [search, setSearch] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
@@ -27,8 +51,18 @@ export default function TableWidget({ data, config }: { data: any; config: Table
     
     if (Array.isArray(result)) return result;
     
-  
     if (typeof result === "object") {
+      // Check if it's cryptocurrency/currency data with nested structure
+      if (isNestedCurrencyData(result)) {
+        return Object.entries(result).map(([coinName, coinData]: [string, any]) => {
+          return {
+            name: coinName,
+            ...coinData,
+          };
+        });
+      }
+      
+      // Original logic for other nested objects (like time series)
       return Object.entries(result).map(([dateKey, values]: [string, any]) => {
         if (typeof values === "object" && values !== null) {
           // Spread the nested object and add date
@@ -105,6 +139,8 @@ export default function TableWidget({ data, config }: { data: any; config: Table
                         {val !== undefined && val !== null
                           ? typeof val === "object"
                             ? JSON.stringify(val).slice(0, 50)
+                            : typeof val === "number" && val % 1 !== 0
+                            ? val.toFixed(2)
                             : String(val)
                           : "—"}
                       </td>

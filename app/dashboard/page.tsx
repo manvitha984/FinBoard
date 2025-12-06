@@ -3,6 +3,7 @@
 import { useState } from "react";
 import AddWidgetModal from "@/components/AddWidgetModal";
 import CacheControl from "@/components/CacheControl";
+import ConfigBackupButton from "@/components/ConfigBackupButton";
 import { useDashboardStore } from "@/store/dashboardStore";
 
 import {
@@ -80,12 +81,15 @@ export default function DashboardPage() {
           </p>
         </div>
 
-        <button
-          className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg"
-          onClick={() => setOpen(true)}
-        >
-          + Add Widget
-        </button>
+        <div className="flex items-center gap-3">
+          <ConfigBackupButton />
+          <button
+            className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg"
+            onClick={() => setOpen(true)}
+          >
+            + Add Widget
+          </button>
+        </div>
       </div>
 
       {widgets.length === 0 && (

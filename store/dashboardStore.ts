@@ -9,6 +9,8 @@ interface DashboardState {
   removeWidget: (id: string) => void;
   updateWidget: (id: string, patch: Partial<WidgetConfig>) => void;
   reorderWidgets: (sourceIndex: number, destIndex: number) => void;
+  clearAllWidgets: () => void;
+  setWidgets: (widgets: WidgetConfig[]) => void;
 }
 
 export const useDashboardStore = create<DashboardState>()(
@@ -61,6 +63,21 @@ export const useDashboardStore = create<DashboardState>()(
           next.splice(destIndex, 0, moved);
           return { widgets: next };
         }),
+      clearAllWidgets: () =>
+        set((s) => {
+          // Clear cache for all widgets
+          s.widgets.forEach((w) => {
+            cacheControl.invalidate(w.apiUrl);
+          });
+          return { widgets: [] };
+        }),
+      setWidgets: (widgets) =>
+        set(() => ({
+          widgets: widgets.map((w) => ({
+            ...w,
+            table: w.displayMode === "table" ? w.table : undefined,
+          })),
+        })),
     }),
     { name: "findash-dashboard" }
   )

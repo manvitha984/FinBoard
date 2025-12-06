@@ -11,18 +11,33 @@ import ChartWidget from "./ChartWidget";
 import EditWidgetModal from "./EditWidgetModal";
 
 function getByPath(obj: any, path: string) {
-  const segments = path.split(".");
-  let cur = obj;
-  for (const seg of segments) {
-    if (cur == null) return undefined;
-    if (seg.endsWith("[]")) {
-      const k = seg.replace("[]", "");
-      cur = cur[k];
+  if (!path) return obj;
+  
+  // Handle array notation like data[0].close or data[].close (for first element)
+  const parts = path.split(".");
+  let current = obj;
+
+  for (let i = 0; i < parts.length; i++) {
+    if (current == null) return undefined;
+
+    let part = parts[i];
+
+    // Check for array index notation (e.g., "data[0]" or "data[]")
+    const arrayMatch = part.match(/^(\w+)\[(\d*)\]$/);
+    if (arrayMatch) {
+      const key = arrayMatch[1];
+      const index = arrayMatch[2] === "" ? 0 : parseInt(arrayMatch[2], 10);
+
+      current = current[key];
+      if (Array.isArray(current)) {
+        current = current[index];
+      }
     } else {
-      cur = cur[seg];
+      current = current[part];
     }
   }
-  return cur;
+
+  return current;
 }
 
 function detectApiError(data: any): string | null {
@@ -44,6 +59,58 @@ function detectApiError(data: any): string | null {
   }
   
   return null;
+}
+
+function isNestedCurrencyData(obj: any): boolean {
+  // Check if object looks like {bitcoin: {usd: X, eur: Y}, ethereum: {...}}
+  if (!obj || typeof obj !== "object" || Array.isArray(obj)) return false;
+  
+  const entries = Object.entries(obj);
+  if (entries.length === 0) return false;
+  
+  // Check first entry - value should be an object with currency-like keys
+  const firstValue = entries[0][1];
+  if (typeof firstValue !== "object" || firstValue === null || Array.isArray(firstValue)) {
+    return false;
+  }
+  
+  const valueKeys = Object.keys(firstValue);
+  const currencyPatterns = ["usd", "eur", "gbp", "jpy", "inr", "cad", "aud", "chf"];
+  
+  // Check if keys contain currency codes or 24h_change patterns
+  return valueKeys.some(k => 
+    currencyPatterns.some(curr => k.toLowerCase().includes(curr)) ||
+    k.toLowerCase().includes("24h") ||
+    k.toLowerCase().includes("change")
+  );
+}
+
+function formatLabel(field: string): string {
+  return field
+    .replace(/^data\[\d*\]\./, "")
+    .replace(/^data\./, "")
+    .replace(/([A-Z])/g, " $1")
+    .replace(/_/g, " ")
+    .trim()
+    .split(" ")
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(" ");
+}
+
+function formatValue(val: any): string {
+  if (typeof val === "number") {
+    // Format numbers with appropriate decimal places
+    if (val % 1 !== 0) {
+      // If it has decimals, show up to 4 decimal places
+      return parseFloat(val.toFixed(4)).toString();
+    }
+    // Format large numbers with commas
+    return val.toLocaleString();
+  }
+  if (typeof val === "object") {
+    return JSON.stringify(val).slice(0, 50);
+  }
+  return String(val);
 }
 
 export default function WidgetCard({ widget }: { widget: WidgetConfig }) {
@@ -239,24 +306,42 @@ export default function WidgetCard({ widget }: { widget: WidgetConfig }) {
             <>
               {widget.displayMode === "card" && (
                 <div className="space-y-2">
-                  {(widget.card?.fields || widget.fields || []).map((field) => {
-                    const val = getByPath(data, field);
-                    return (
-                      <div 
-                        key={field} 
-                        className="flex justify-between items-center p-2.5 bg-gray-800/50 rounded-lg border border-gray-700/50 hover:border-gray-600/50 transition-colors"
-                      >
-                        <span className="text-xs text-gray-400 font-mono truncate">{field}</span>
-                        <span className="text-white font-semibold ml-2 text-sm">
-                          {val !== undefined && val !== null
-                            ? typeof val === "object"
-                              ? JSON.stringify(val).slice(0, 50)
-                              : String(val)
-                            : "—"}
-                        </span>
-                      </div>
-                    );
-                  })}
+                  {(() => {
+                    let fieldsToDisplay = widget.card?.fields || widget.fields || [];
+                    
+                    // If no fields specified and data is an array, auto-detect from first row
+                    if (fieldsToDisplay.length === 0 && Array.isArray(data.data) && data.data.length > 0) {
+                      const firstRow = data.data[0];
+                      fieldsToDisplay = Object.keys(firstRow).filter(
+                        key => key !== "date" // Skip date, show it first
+                      );
+                      // Add date at the beginning
+                      if (firstRow.date) {
+                        fieldsToDisplay = ["date", ...fieldsToDisplay];
+                      }
+                    }
+                    
+                    return fieldsToDisplay.map((field) => {
+                      const val = getByPath(data, field);
+                      
+                      // Skip null/undefined values
+                      if (val === undefined || val === null) return null;
+                      
+                      return (
+                        <div 
+                          key={field} 
+                          className="flex justify-between items-center p-2.5 bg-gray-800/50 rounded-lg border border-gray-700/50 hover:border-gray-600/50 transition-colors"
+                        >
+                          <span className="text-xs text-gray-400 font-medium uppercase tracking-wide">
+                            {formatLabel(field)}
+                          </span>
+                          <span className="text-white font-semibold ml-2 text-sm">
+                            {formatValue(val)}
+                          </span>
+                        </div>
+                      );
+                    }).filter(Boolean);
+                  })()}
                 </div>
               )}
 

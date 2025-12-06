@@ -19,6 +19,7 @@ function sanitizeKey(key: string): string {
 function coerceValue(value: any): any {
   if (typeof value === "string") {
     const trimmed = value.trim();
+    // Try to parse as number
     if (/^[+-]?\d+(\.\d+)?$/.test(trimmed)) {
       const n = Number(trimmed);
       if (!Number.isNaN(n)) return n;
@@ -39,6 +40,39 @@ function deepNormalize(value: any): any {
   return coerceValue(value);
 }
 
+// Helper: Check if data looks like OHLCV time-series
+function isOHLCVTimeSeries(input: any): boolean {
+  if (!input || typeof input !== "object" || Array.isArray(input)) return false;
+  
+  const keys = Object.keys(input);
+  if (keys.length < 2) return false;
+
+  // Check if majority of keys look like dates
+  const dateKeys = keys.filter(
+    (k) =>
+      /^\d{4}-\d{2}-\d{2}/.test(k) ||
+      /^\d{1,2}\/\d{1,2}\/\d{4}/.test(k) ||
+      /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(k)
+  );
+  
+  if (dateKeys.length === 0 || dateKeys.length < keys.length * 0.5) return false;
+
+  // Check if values are objects with OHLCV-like keys
+  const sampleValue = input[dateKeys[0]];
+  if (!sampleValue || typeof sampleValue !== "object" || Array.isArray(sampleValue))
+    return false;
+
+  const valueKeys = Object.keys(sampleValue).map((k) => k.toLowerCase());
+  const ohlcvPatterns = ["open", "high", "low", "close", "volume"];
+  
+  // Count how many OHLCV patterns we find
+  const matchCount = valueKeys.filter((k) =>
+    ohlcvPatterns.some((pattern) => k.includes(pattern.substring(0, 3)))
+  ).length;
+
+  return matchCount >= 3;
+}
+
 const alphaVantageAdapter: Adapter = {
   name: "alphavantage",
   detect: (input) => {
@@ -49,11 +83,38 @@ const alphaVantageAdapter: Adapter = {
       keys.includes("Global Quote") ||
       keys.includes("Time Series (Daily)") ||
       keys.includes("Realtime Currency Exchange Rate") ||
-      keys.some(k => /^Time Series/.test(k)) ||
-      keys.some(k => /^\d+\.\s+/.test(k))
+      keys.some((k) => /^Time Series/.test(k)) ||
+      keys.some((k) => /^\d+\.\s+/.test(k))
     );
   },
   normalize: (input) => {
+    // If it's an AlphaVantage time-series with OHLCV, handle it specially
+    const keys = Object.keys(input);
+    const timeSeriesKey = keys.find((k) => /^Time Series/.test(k));
+    
+    if (timeSeriesKey && isOHLCVTimeSeries(input[timeSeriesKey])) {
+      // Extract the time-series data and flatten it
+      const timeSeries = input[timeSeriesKey];
+      const rows: any[] = [];
+      
+      for (const [dateKey, values] of Object.entries(timeSeries)) {
+        if (!values || typeof values !== "object") continue;
+        
+        const row: any = { date: dateKey };
+        const normalized = deepNormalize(values);
+        
+        for (const [k, v] of Object.entries(normalized)) {
+          row[k] = v;
+        }
+        
+        rows.push(row);
+      }
+      
+      console.log(`✅ AlphaVantage OHLCV detected: ${rows.length} rows flattened`);
+      console.log(`📊 Sample row:`, rows[0]);
+      return { data: rows };
+    }
+    
     const normalized = deepNormalize(input);
     return { data: normalized };
   },
@@ -120,12 +181,40 @@ const graphqlAdapter: Adapter = {
   },
 };
 
+// OHLCV Time-Series Adapter for raw nested OHLCV data
+const ohlcvTimeSeriesAdapter: Adapter = {
+  name: "ohlcv_timeseries",
+  detect: (input) => {
+    return isOHLCVTimeSeries(input);
+  },
+  normalize: (input) => {
+    const rows: any[] = [];
+    
+    for (const [dateKey, values] of Object.entries(input)) {
+      if (!values || typeof values !== "object" || Array.isArray(values)) continue;
+      
+      const row: any = { date: dateKey };
+      const normalized = deepNormalize(values);
+      
+      for (const [k, v] of Object.entries(normalized)) {
+        row[k] = v;
+      }
+      
+      rows.push(row);
+    }
+    
+    console.log(`✅ OHLCV TimeSeries detected: ${rows.length} rows`);
+    console.log(`📊 Sample row:`, rows[0]);
+    return { data: rows };
+  },
+};
+
 const timeSeriesAdapter: Adapter = {
   name: "timeseries",
   detect: (input) => {
     if (!input || typeof input !== "object") return false;
     const keys = Object.keys(input);
-    const dateKeys = keys.filter(k => /^\d{4}-\d{2}-\d{2}/.test(k));
+    const dateKeys = keys.filter((k) => /^\d{4}-\d{2}-\d{2}/.test(k));
     return dateKeys.length > 0 && dateKeys.length / keys.length > 0.5;
   },
   normalize: (input) => {
@@ -150,7 +239,7 @@ const genericDataAdapter: Adapter = {
 
 const universalAdapter: Adapter = {
   name: "universal",
-  detect: () => true, 
+  detect: () => true,
   normalize: (input) => {
     if (input == null) return { data: null };
     if (typeof input !== "object") return { data: { value: coerceValue(input) } };
@@ -170,14 +259,15 @@ const universalAdapter: Adapter = {
 };
 
 export const adapters: Adapter[] = [
-  alphaVantageAdapter,
+  alphaVantageAdapter,     // Handles AlphaVantage + OHLCV conversion
+  ohlcvTimeSeriesAdapter,  // Direct OHLCV detection (before generic time-series)
   coinbaseAdapter,
   graphqlAdapter,
   restApiAdapter,
   paginatedAdapter,
   timeSeriesAdapter,
   genericDataAdapter,
-  universalAdapter, 
+  universalAdapter,
 ];
 
 export function normalizeData(raw: any): any {

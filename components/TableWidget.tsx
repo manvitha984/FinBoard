@@ -38,7 +38,15 @@ function isNestedCurrencyData(obj: any): boolean {
   );
 }
 
-export default function TableWidget({ data, config }: { data: any; config: TableConfig }) {
+export default function TableWidget({ 
+  data, 
+  config,
+  compact = false 
+}: { 
+  data: any; 
+  config: TableConfig;
+  compact?: boolean;
+}) {
   const [search, setSearch] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
 
@@ -86,13 +94,18 @@ export default function TableWidget({ data, config }: { data: any; config: Table
   const endIdx = startIdx + pageSize;
   const pageData = filteredArray.slice(startIdx, endIdx);
 
+  // Dynamic sizing based on compact mode
+  const cellPadding = compact ? "px-2 py-1" : "px-3 py-2";
+  const fontSize = compact ? "text-xs" : "text-sm";
+  const headerFontSize = compact ? "text-[10px]" : "text-xs";
+
   return (
     <div className="flex flex-col h-full">
-      <div className="mb-3">
+      <div className={compact ? "mb-2" : "mb-3"}>
         <input
           type="text"
           placeholder="Search table..."
-          className="w-full px-3 py-2 bg-[var(--input-bg)] border border-[var(--input-border)] rounded text-sm text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
+          className={`w-full ${cellPadding} bg-[var(--input-bg)] border border-[var(--input-border)] rounded ${fontSize} text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors`}
           value={search}
           onChange={(e) => {
             setSearch(e.target.value);
@@ -102,13 +115,13 @@ export default function TableWidget({ data, config }: { data: any; config: Table
       </div>
 
       <div className="flex-1 overflow-auto border border-[var(--card-border)] rounded-lg">
-        <table className="w-full text-sm">
+        <table className={`w-full ${fontSize}`}>
           <thead className="bg-[var(--card-header)] sticky top-0">
             <tr>
               {config.columns.map((col) => (
                 <th
                   key={col.key}
-                  className="px-3 py-2 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider border-b border-[var(--card-border)]"
+                  className={`${cellPadding} text-left ${headerFontSize} font-semibold text-[var(--text-secondary)] uppercase tracking-wider border-b border-[var(--card-border)]`}
                 >
                   {col.label}
                 </th>
@@ -131,7 +144,7 @@ export default function TableWidget({ data, config }: { data: any; config: Table
                     display = String(val);
                   }
                   return (
-                    <td key={col.key} className="px-3 py-2 text-[var(--text-primary)]">
+                    <td key={col.key} className={`${cellPadding} text-[var(--text-primary)]`}>
                       {display}
                     </td>
                   );
@@ -142,34 +155,37 @@ export default function TableWidget({ data, config }: { data: any; config: Table
         </table>
 
         {pageData.length === 0 && (
-          <div className="p-4 text-center text-[var(--text-muted)]">
+          <div className={`${compact ? "p-2" : "p-4"} text-center text-[var(--text-muted)] ${fontSize}`}>
             No data found
           </div>
         )}
       </div>
 
       {totalPages > 1 && (
-        <div className="flex items-center justify-between mt-3 text-sm">
+        <div className={`flex items-center justify-between ${compact ? "mt-2" : "mt-3"} ${fontSize}`}>
           <span className="text-[var(--text-muted)]">
-            Showing {startIdx + 1}-{Math.min(endIdx, filteredArray.length)} of {filteredArray.length}
+            {compact 
+              ? `${startIdx + 1}-${Math.min(endIdx, filteredArray.length)}/${filteredArray.length}` 
+              : `Showing ${startIdx + 1}-${Math.min(endIdx, filteredArray.length)} of ${filteredArray.length}`
+            }
           </span>
-          <div className="flex gap-2">
+          <div className="flex gap-1">
             <button
-              className="px-3 py-1 bg-[var(--card-bg)] border border-[var(--card-border)] rounded hover:bg-[var(--hover-bg)] disabled:opacity-50 text-[var(--text-primary)] transition-colors"
+              className={`${compact ? "px-2 py-0.5" : "px-3 py-1"} bg-[var(--card-bg)] border border-[var(--card-border)] rounded hover:bg-[var(--hover-bg)] disabled:opacity-50 text-[var(--text-primary)] transition-colors`}
               onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
               disabled={currentPage === 1}
             >
-              ← Prev
+              {compact ? "←" : "← Prev"}
             </button>
-            <span className="px-3 py-1 text-[var(--text-secondary)]">
-              {currentPage} / {totalPages}
+            <span className={`${compact ? "px-2 py-0.5" : "px-3 py-1"} text-[var(--text-secondary)]`}>
+              {currentPage}/{totalPages}
             </span>
             <button
-              className="px-3 py-1 bg-[var(--card-bg)] border border-[var(--card-border)] rounded hover:bg-[var(--hover-bg)] disabled:opacity-50 text-[var(--text-primary)] transition-colors"
+              className={`${compact ? "px-2 py-0.5" : "px-3 py-1"} bg-[var(--card-bg)] border border-[var(--card-border)] rounded hover:bg-[var(--hover-bg)] disabled:opacity-50 text-[var(--text-primary)] transition-colors`}
               onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
               disabled={currentPage === totalPages}
             >
-              Next →
+              {compact ? "→" : "Next →"}
             </button>
           </div>
         </div>

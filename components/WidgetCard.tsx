@@ -84,7 +84,19 @@ function formatValue(val: any): string {
   return String(val);
 }
 
-export default function WidgetCard({ widget }: { widget: WidgetConfig }) {
+interface WidgetCardProps {
+  widget: WidgetConfig;
+  compact?: boolean;
+  roundedStyle?: string;
+  shadowStyle?: string;
+}
+
+export default function WidgetCard({ 
+  widget, 
+  compact = false,
+  roundedStyle = "rounded-xl",
+  shadowStyle = "shadow-lg"
+}: WidgetCardProps) {
   const [data, setData] = useState<any>(null);
   const [status, setStatus] = useState<"idle" | "loading" | "error" | "ok">("idle");
   const [errorMsg, setErrorMsg] = useState<string>("");
@@ -170,22 +182,29 @@ export default function WidgetCard({ widget }: { widget: WidgetConfig }) {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [actionsRef, openEdit]);
 
+  // Dynamic padding based on compact mode
+  const headerPadding = compact ? "px-3 py-2" : "px-4 py-3";
+  const contentPadding = compact ? "p-3" : "p-4";
+  const footerPadding = compact ? "px-3 py-1.5" : "px-4 py-2";
+  const titleSize = compact ? "text-xs" : "text-sm";
+  const iconSize = compact ? "text-base" : "text-lg";
+
   return (
     <>
-      <div className="bg-[var(--card-bg)] rounded-xl border border-[var(--card-border)] shadow-lg h-full flex flex-col overflow-hidden transition-colors">
+      <div className={`bg-[var(--card-bg)] ${roundedStyle} border border-[var(--card-border)] ${shadowStyle} h-full flex flex-col overflow-hidden transition-colors`}>
         {/* Header Section */}
-        <div className="px-4 py-3 border-b border-[var(--card-border)] bg-[var(--card-header)]">
-          <div className="flex items-center justify-between gap-3">
+        <div className={`${headerPadding} border-b border-[var(--card-border)] bg-[var(--card-header)]`}>
+          <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2 min-w-0 flex-1">
-              {widget.displayMode === "table" && <span className="text-lg">📊</span>}
-              {widget.displayMode === "chart" && <span className="text-lg">📈</span>}
-              {widget.displayMode === "card" && <span className="text-lg">💳</span>}
-              <h3 className="font-semibold text-[var(--text-primary)] truncate text-sm">{widget.name}</h3>
+              {widget.displayMode === "table" && <span className={iconSize}>📊</span>}
+              {widget.displayMode === "chart" && <span className={iconSize}>📈</span>}
+              {widget.displayMode === "card" && <span className={iconSize}>💳</span>}
+              <h3 className={`font-semibold text-[var(--text-primary)] truncate ${titleSize}`}>{widget.name}</h3>
             </div>
 
-            <div className="flex items-center gap-1.5 flex-shrink-0" ref={actionsRef}>
+            <div className="flex items-center gap-1 flex-shrink-0" ref={actionsRef}>
               <button
-                className="p-1.5 rounded-lg hover:bg-[var(--hover-bg)] text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors text-sm"
+                className={`p-1 ${compact ? "" : "p-1.5"} rounded-lg hover:bg-[var(--hover-bg)] text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors ${compact ? "text-xs" : "text-sm"}`}
                 onClick={fetchData}
                 disabled={status === "loading"}
                 title="Refresh now"
@@ -195,14 +214,14 @@ export default function WidgetCard({ widget }: { widget: WidgetConfig }) {
                 </span>
               </button>
               <button
-                className="p-1.5 rounded-lg hover:bg-[var(--hover-bg)] text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors text-sm"
+                className={`p-1 ${compact ? "" : "p-1.5"} rounded-lg hover:bg-[var(--hover-bg)] text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors ${compact ? "text-xs" : "text-sm"}`}
                 onClick={() => setOpenEdit(true)}
                 title="Edit widget"
               >
                 ⚙️
               </button>
               <button
-                className="p-1.5 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/30 text-red-500 dark:text-red-400 hover:text-red-600 dark:hover:text-red-300 transition-colors text-sm"
+                className={`p-1 ${compact ? "" : "p-1.5"} rounded-lg hover:bg-red-100 dark:hover:bg-red-900/30 text-red-500 dark:text-red-400 hover:text-red-600 dark:hover:text-red-300 transition-colors ${compact ? "text-xs" : "text-sm"}`}
                 onClick={() => removeWidget(widget.id)}
                 title="Delete widget"
               >
@@ -211,7 +230,7 @@ export default function WidgetCard({ widget }: { widget: WidgetConfig }) {
             </div>
           </div>
 
-          <div className="flex items-center justify-between mt-2 text-xs">
+          <div className={`flex items-center justify-between ${compact ? "mt-1" : "mt-2"} text-xs`}>
             <div className="flex items-center gap-2">
               {isLearning && (
                 <span 
@@ -219,7 +238,7 @@ export default function WidgetCard({ widget }: { widget: WidgetConfig }) {
                   title="Cache is learning this API's update pattern"
                 >
                   <span className="w-1.5 h-1.5 rounded-full bg-purple-500 dark:bg-purple-400 animate-pulse"></span>
-                  Learning Pattern
+                  {!compact && "Learning Pattern"}
                 </span>
               )}
               {isCached && !isLearning && !isRateLimited && (
@@ -228,7 +247,7 @@ export default function WidgetCard({ widget }: { widget: WidgetConfig }) {
                   title="Data served from cache - no API call needed"
                 >
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 dark:bg-emerald-400"></span>
-                  From Cache
+                  {!compact && "From Cache"}
                 </span>
               )}
               {isRateLimited && (
@@ -237,13 +256,13 @@ export default function WidgetCard({ widget }: { widget: WidgetConfig }) {
                   title="Rate limited - using cached data"
                 >
                   <span className="w-1.5 h-1.5 rounded-full bg-red-500 dark:bg-red-400 animate-pulse"></span>
-                  Rate Limited (From Cache)
+                  {!compact && "Rate Limited"}
                 </span>
               )}
             </div>
 
             <div className="flex items-center gap-2">
-              {isCached && cacheTTL > 0 && (
+              {isCached && cacheTTL > 0 && !compact && (
                 <span 
                   className="text-[var(--text-muted)]" 
                   title={`Cache expires in ${cacheTTL} seconds`}
@@ -258,22 +277,22 @@ export default function WidgetCard({ widget }: { widget: WidgetConfig }) {
           </div>
         </div>
 
-        <div className="flex-1 min-h-0 overflow-auto p-4">
+        <div className={`flex-1 min-h-0 overflow-auto ${contentPadding}`}>
           {status === "loading" && (
             <div className="flex items-center justify-center h-full">
-              <div className="flex flex-col items-center gap-3">
-                <div className="w-8 h-8 border-3 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-                <div className="text-[var(--text-muted)] text-sm">Loading...</div>
+              <div className="flex flex-col items-center gap-2">
+                <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                {!compact && <div className="text-[var(--text-muted)] text-sm">Loading...</div>}
               </div>
             </div>
           )}
 
           {status === "error" && (
-            <div className="flex flex-col items-center justify-center h-full gap-3 p-4">
-              <div className="text-4xl">⚠️</div>
-              <div className="text-red-500 dark:text-red-400 text-sm text-center">{errorMsg}</div>
+            <div className="flex flex-col items-center justify-center h-full gap-2 p-2">
+              <div className={compact ? "text-2xl" : "text-4xl"}>⚠️</div>
+              <div className={`text-red-500 dark:text-red-400 text-center ${compact ? "text-xs" : "text-sm"}`}>{errorMsg}</div>
               <button
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm transition-colors"
+                className={`px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors ${compact ? "text-xs" : "text-sm"}`}
                 onClick={fetchData}
               >
                 Retry
@@ -284,7 +303,7 @@ export default function WidgetCard({ widget }: { widget: WidgetConfig }) {
           {status === "ok" && data && (
             <>
               {widget.displayMode === "card" && (
-                <div className="space-y-2">
+                <div className={compact ? "space-y-1" : "space-y-2"}>
                   {(() => {
                     let fieldsToDisplay = widget.card?.fields || widget.fields || [];
                     
@@ -306,12 +325,12 @@ export default function WidgetCard({ widget }: { widget: WidgetConfig }) {
                       return (
                         <div 
                           key={field} 
-                          className="flex justify-between items-center p-2.5 bg-[var(--hover-bg)] rounded-lg border border-[var(--card-border)] hover:border-[var(--text-muted)] transition-colors"
+                          className={`flex justify-between items-center ${compact ? "p-2" : "p-2.5"} bg-[var(--hover-bg)] rounded-lg border border-[var(--card-border)] hover:border-[var(--text-muted)] transition-colors`}
                         >
-                          <span className="text-xs text-[var(--text-muted)] font-medium uppercase tracking-wide">
+                          <span className={`text-[var(--text-muted)] font-medium uppercase tracking-wide ${compact ? "text-[10px]" : "text-xs"}`}>
                             {formatLabel(field)}
                           </span>
-                          <span className="text-[var(--text-primary)] font-semibold ml-2 text-sm">
+                          <span className={`text-[var(--text-primary)] font-semibold ml-2 ${compact ? "text-xs" : "text-sm"}`}>
                             {formatValue(val)}
                           </span>
                         </div>
@@ -322,7 +341,7 @@ export default function WidgetCard({ widget }: { widget: WidgetConfig }) {
               )}
 
               {widget.displayMode === "table" && widget.table && (
-                <TableWidget data={data} config={widget.table} />
+                <TableWidget data={data} config={widget.table} compact={compact} />
               )}
 
               {widget.displayMode === "chart" && widget.chart && (
@@ -333,10 +352,10 @@ export default function WidgetCard({ widget }: { widget: WidgetConfig }) {
         </div>
 
         {lastUpdated && (
-          <div className="px-4 py-2 border-t border-[var(--card-border)] bg-[var(--card-header)]">
-            <div className="text-xs text-[var(--text-muted)] text-right">
+          <div className={`${footerPadding} border-t border-[var(--card-border)] bg-[var(--card-header)]`}>
+            <div className={`text-[var(--text-muted)] text-right ${compact ? "text-[10px]" : "text-xs"}`}>
               Updated {lastUpdated}
-              {requestCount > 0 && ` • API Calls: ${requestCount}`}
+              {requestCount > 0 && !compact && ` • API Calls: ${requestCount}`}
             </div>
           </div>
         )}

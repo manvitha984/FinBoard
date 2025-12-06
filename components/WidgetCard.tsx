@@ -109,7 +109,6 @@ export default function WidgetCard({ widget }: { widget: WidgetConfig }) {
       setIsCached(result.cached || false);
       setIsLearning(result.learningMode || false);
       
-      // Update rate limit info
       if (result.quotaInfo) {
         setRequestCount(result.quotaInfo.requestCount);
         setIsRateLimited(result.quotaInfo.isThrottled || false);
@@ -173,21 +172,20 @@ export default function WidgetCard({ widget }: { widget: WidgetConfig }) {
 
   return (
     <>
-      <div className="bg-[#0f172a] rounded-xl border border-gray-700 shadow-lg h-full flex flex-col overflow-hidden">
+      <div className="bg-[var(--card-bg)] rounded-xl border border-[var(--card-border)] shadow-lg h-full flex flex-col overflow-hidden transition-colors">
         {/* Header Section */}
-        <div className="px-4 py-3 border-b border-gray-700/50 bg-gradient-to-r from-gray-800/50 to-transparent">
+        <div className="px-4 py-3 border-b border-[var(--card-border)] bg-[var(--card-header)]">
           <div className="flex items-center justify-between gap-3">
-            {/* Left: Icon + Title */}
             <div className="flex items-center gap-2 min-w-0 flex-1">
               {widget.displayMode === "table" && <span className="text-lg">📊</span>}
               {widget.displayMode === "chart" && <span className="text-lg">📈</span>}
               {widget.displayMode === "card" && <span className="text-lg">💳</span>}
-              <h3 className="font-semibold text-white truncate text-sm">{widget.name}</h3>
+              <h3 className="font-semibold text-[var(--text-primary)] truncate text-sm">{widget.name}</h3>
             </div>
 
             <div className="flex items-center gap-1.5 flex-shrink-0" ref={actionsRef}>
               <button
-                className="p-1.5 rounded-lg hover:bg-gray-700/50 text-gray-400 hover:text-white transition-colors text-sm"
+                className="p-1.5 rounded-lg hover:bg-[var(--hover-bg)] text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors text-sm"
                 onClick={fetchData}
                 disabled={status === "loading"}
                 title="Refresh now"
@@ -197,14 +195,14 @@ export default function WidgetCard({ widget }: { widget: WidgetConfig }) {
                 </span>
               </button>
               <button
-                className="p-1.5 rounded-lg hover:bg-gray-700/50 text-gray-400 hover:text-white transition-colors text-sm"
+                className="p-1.5 rounded-lg hover:bg-[var(--hover-bg)] text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors text-sm"
                 onClick={() => setOpenEdit(true)}
                 title="Edit widget"
               >
                 ⚙️
               </button>
               <button
-                className="p-1.5 rounded-lg hover:bg-red-900/30 text-red-400 hover:text-red-300 transition-colors text-sm"
+                className="p-1.5 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/30 text-red-500 dark:text-red-400 hover:text-red-600 dark:hover:text-red-300 transition-colors text-sm"
                 onClick={() => removeWidget(widget.id)}
                 title="Delete widget"
               >
@@ -217,28 +215,28 @@ export default function WidgetCard({ widget }: { widget: WidgetConfig }) {
             <div className="flex items-center gap-2">
               {isLearning && (
                 <span 
-                  className="inline-flex items-center gap-1 px-2 py-0.5 bg-purple-500/10 text-purple-400 rounded-md border border-purple-500/20"
+                  className="inline-flex items-center gap-1 px-2 py-0.5 bg-purple-100 dark:bg-purple-500/10 text-purple-600 dark:text-purple-400 rounded-md border border-purple-200 dark:border-purple-500/20"
                   title="Cache is learning this API's update pattern"
                 >
-                  <span className="w-1.5 h-1.5 rounded-full bg-purple-400 animate-pulse"></span>
+                  <span className="w-1.5 h-1.5 rounded-full bg-purple-500 dark:bg-purple-400 animate-pulse"></span>
                   Learning Pattern
                 </span>
               )}
               {isCached && !isLearning && !isRateLimited && (
                 <span 
-                  className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-500/10 text-emerald-400 rounded-md border border-emerald-500/20"
+                  className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-100 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-md border border-emerald-200 dark:border-emerald-500/20"
                   title="Data served from cache - no API call needed"
                 >
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 dark:bg-emerald-400"></span>
                   From Cache
                 </span>
               )}
               {isRateLimited && (
                 <span 
-                  className="inline-flex items-center gap-1 px-2 py-0.5 bg-red-500/10 text-red-400 rounded-md border border-red-500/20"
+                  className="inline-flex items-center gap-1 px-2 py-0.5 bg-red-100 dark:bg-red-500/10 text-red-600 dark:text-red-400 rounded-md border border-red-200 dark:border-red-500/20"
                   title="Rate limited - using cached data"
                 >
-                  <span className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse"></span>
+                  <span className="w-1.5 h-1.5 rounded-full bg-red-500 dark:bg-red-400 animate-pulse"></span>
                   Rate Limited (From Cache)
                 </span>
               )}
@@ -247,13 +245,13 @@ export default function WidgetCard({ widget }: { widget: WidgetConfig }) {
             <div className="flex items-center gap-2">
               {isCached && cacheTTL > 0 && (
                 <span 
-                  className="text-gray-500" 
+                  className="text-[var(--text-muted)]" 
                   title={`Cache expires in ${cacheTTL} seconds`}
                 >
                   Expires {cacheTTL}s
                 </span>
               )}
-              <span className="text-gray-400" title="Widget refresh interval">
+              <span className="text-[var(--text-muted)]" title="Widget refresh interval">
                 ⟳ {widget.refreshSeconds}s
               </span>
             </div>
@@ -265,7 +263,7 @@ export default function WidgetCard({ widget }: { widget: WidgetConfig }) {
             <div className="flex items-center justify-center h-full">
               <div className="flex flex-col items-center gap-3">
                 <div className="w-8 h-8 border-3 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-                <div className="text-gray-400 text-sm">Loading...</div>
+                <div className="text-[var(--text-muted)] text-sm">Loading...</div>
               </div>
             </div>
           )}
@@ -273,9 +271,9 @@ export default function WidgetCard({ widget }: { widget: WidgetConfig }) {
           {status === "error" && (
             <div className="flex flex-col items-center justify-center h-full gap-3 p-4">
               <div className="text-4xl">⚠️</div>
-              <div className="text-red-400 text-sm text-center">{errorMsg}</div>
+              <div className="text-red-500 dark:text-red-400 text-sm text-center">{errorMsg}</div>
               <button
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm transition-colors"
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm transition-colors"
                 onClick={fetchData}
               >
                 Retry
@@ -308,12 +306,12 @@ export default function WidgetCard({ widget }: { widget: WidgetConfig }) {
                       return (
                         <div 
                           key={field} 
-                          className="flex justify-between items-center p-2.5 bg-gray-800/50 rounded-lg border border-gray-700/50 hover:border-gray-600/50 transition-colors"
+                          className="flex justify-between items-center p-2.5 bg-[var(--hover-bg)] rounded-lg border border-[var(--card-border)] hover:border-[var(--text-muted)] transition-colors"
                         >
-                          <span className="text-xs text-gray-400 font-medium uppercase tracking-wide">
+                          <span className="text-xs text-[var(--text-muted)] font-medium uppercase tracking-wide">
                             {formatLabel(field)}
                           </span>
-                          <span className="text-white font-semibold ml-2 text-sm">
+                          <span className="text-[var(--text-primary)] font-semibold ml-2 text-sm">
                             {formatValue(val)}
                           </span>
                         </div>
@@ -334,10 +332,9 @@ export default function WidgetCard({ widget }: { widget: WidgetConfig }) {
           )}
         </div>
 
-        {/* Footer */}
         {lastUpdated && (
-          <div className="px-4 py-2 border-t border-gray-700/50 bg-gray-800/30">
-            <div className="text-xs text-gray-500 text-right">
+          <div className="px-4 py-2 border-t border-[var(--card-border)] bg-[var(--card-header)]">
+            <div className="text-xs text-[var(--text-muted)] text-right">
               Updated {lastUpdated}
               {requestCount > 0 && ` • API Calls: ${requestCount}`}
             </div>

@@ -4,6 +4,7 @@ import { useState } from "react";
 import AddWidgetModal from "@/components/AddWidgetModal";
 import CacheControl from "@/components/CacheControl";
 import ConfigBackupButton from "@/components/ConfigBackupButton";
+import ThemeToggle from "@/components/ThemeToggle";
 import { useDashboardStore } from "@/store/dashboardStore";
 
 import {
@@ -56,7 +57,6 @@ export default function DashboardPage() {
     })
   );
 
-  // Separate widgets by type
   const cardWidgets = widgets.filter((w) => w.displayMode === "card");
   const tableWidgets = widgets.filter((w) => w.displayMode === "table");
   const chartWidgets = widgets.filter((w) => w.displayMode === "chart");
@@ -72,19 +72,20 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="min-h-screen bg-[var(--background)] p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Finance Dashboard</h1>
-          <p className="text-sm text-gray-400">
+          <h1 className="text-3xl font-bold text-[var(--text-primary)]">Finance Dashboard</h1>
+          <p className="text-sm text-[var(--text-muted)]">
             Build your real-time finance widgets
           </p>
         </div>
 
         <div className="flex items-center gap-3">
+          <ThemeToggle />
           <ConfigBackupButton />
           <button
-            className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg"
+            className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition-colors"
             onClick={() => setOpen(true)}
           >
             + Add Widget
@@ -93,8 +94,8 @@ export default function DashboardPage() {
       </div>
 
       {widgets.length === 0 && (
-        <div className="border border-gray-700 p-6 rounded-xl text-gray-400">
-          No widgets added yet.
+        <div className="border border-[var(--card-border)] bg-[var(--card-bg)] p-6 rounded-xl text-[var(--text-muted)]">
+          No widgets added yet. Click "+ Add Widget" to get started.
         </div>
       )}
 
@@ -104,10 +105,9 @@ export default function DashboardPage() {
         onDragEnd={handleDragEnd}
       >
         <div className="space-y-6">
-          {/* Card Widgets Row */}
           {cardWidgets.length > 0 && (
             <div>
-              <h2 className="text-lg font-semibold mb-3 text-gray-300">📋 Quick Metrics</h2>
+              <h2 className="text-lg font-semibold mb-3 text-[var(--text-secondary)]">📋 Quick Metrics</h2>
               <SortableContext items={cardWidgets.map((w) => w.id)} strategy={rectSortingStrategy}>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                   {cardWidgets.map((widget) => (
@@ -118,10 +118,9 @@ export default function DashboardPage() {
             </div>
           )}
 
-          {/* Chart Widgets Row */}
           {chartWidgets.length > 0 && (
             <div>
-              <h2 className="text-lg font-semibold mb-3 text-gray-300">📈 Charts</h2>
+              <h2 className="text-lg font-semibold mb-3 text-[var(--text-secondary)]">📈 Charts</h2>
               <SortableContext items={chartWidgets.map((w) => w.id)} strategy={rectSortingStrategy}>
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                   {chartWidgets.map((widget) => (
@@ -132,10 +131,9 @@ export default function DashboardPage() {
             </div>
           )}
 
-          {/* Table Widgets - Each in its own row */}
           {tableWidgets.length > 0 && (
             <div>
-              <h2 className="text-lg font-semibold mb-3 text-gray-300">📊 Data Tables</h2>
+              <h2 className="text-lg font-semibold mb-3 text-[var(--text-secondary)]">📊 Data Tables</h2>
               <SortableContext items={tableWidgets.map((w) => w.id)} strategy={rectSortingStrategy}>
                 <div className="space-y-4">
                   {tableWidgets.map((widget) => (
@@ -151,8 +149,6 @@ export default function DashboardPage() {
       </DndContext>
 
       <AddWidgetModal isOpen={open} onClose={() => setOpen(false)} />
-      
-      {/* Adaptive Cache Control - Bottom Right Corner */}
       <CacheControl />
     </div>
   );

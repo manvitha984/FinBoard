@@ -4,8 +4,6 @@ import { WidgetConfig, DisplayMode } from "@/types/widget";
 import { fetchJson } from "@/utils/apiClient";
 import { normalizeData } from "@/utils/dataMapper";
 
-
-
 type FlatKey = {
   path: string;
   type: string;
@@ -33,15 +31,13 @@ function flattenJson(obj: any, prefix = "", acc: FlatKey[] = []): FlatKey[] {
     if (keys.length > 0) {
       const values = keys.map((k) => obj[k]);
       const allPrimitive = values.every((v) => isPrimitive(v));
-      
-      
+
       if (allPrimitive && prefix) {
         acc.push({
           path: prefix,
           type: "array",
           sample: String(values[0]),
         });
-      
       }
     }
 
@@ -80,53 +76,40 @@ function getValueAtPath(data: any, path: string) {
   }, data);
 }
 
-
 function getTableSampleRow(data: any, path: string) {
-  console.log("🔍 getTableSampleRow called with path:", path);
-  console.log("🔍 Raw data:", data);
-  
   const target = getValueAtPath(data, path);
-  console.log("🔍 Target at path:", target);
-  
+
   if (!target) return null;
 
   if (Array.isArray(target)) {
     const sample = target[0];
     if (sample && typeof sample === "object") {
-      console.log("✅ Array sample row:", sample);
       return sample;
     }
     if (sample !== undefined) {
-      console.log("✅ Primitive array sample:", { value: sample });
       return { value: sample };
     }
     return null;
   }
 
-  
   if (typeof target === "object") {
     const entries = Object.entries(target);
-    console.log("🔍 Object has", entries.length, "entries");
-    
+
     if (!entries.length) return null;
-    
+
     const [dateKey, dateValues] = entries[0];
-    console.log("🔍 First entry - key:", dateKey, "values:", dateValues);
-    
+
     if (dateValues && typeof dateValues === "object" && !Array.isArray(dateValues)) {
-      
       const sampleRow = { date: dateKey, ...dateValues };
-      console.log("✅ Generated sample row with date:", sampleRow);
       return sampleRow;
     }
-    
-    console.log("⚠️ Fallback to key/value");
+
     return { key: dateKey, value: dateValues };
   }
 
-  console.log("❌ No valid sample found");
   return null;
 }
+
 function humanizeLabel(key: string) {
   return key
     .replace(/[_\-]/g, " ")
@@ -135,22 +118,21 @@ function humanizeLabel(key: string) {
 
 function detectApiError(data: any): string | null {
   if (!data || typeof data !== "object") return null;
-  
+
   const errorKeys = [
     "Error Message", "error_message",
-    "Information", "information", 
+    "Information", "information",
     "Note", "note",
     "error", "Error"
   ];
-  
+
   for (const key of errorKeys) {
     if (data[key]) {
       const msg = String(data[key]);
-     
       const lower = msg.toLowerCase();
       if (
         lower.includes("error") ||
-        lower.includes("invalid") || 
+        lower.includes("invalid") ||
         lower.includes("fail") ||
         lower.includes("limit") ||
         lower.includes("detected") ||
@@ -161,22 +143,22 @@ function detectApiError(data: any): string | null {
       }
     }
   }
-  
+
   if (data.message && typeof data.message === "string") {
     const lower = data.message.toLowerCase();
     if (
-      lower.includes("error") || 
-      lower.includes("invalid") || 
-      lower.includes("fail") || 
+      lower.includes("error") ||
+      lower.includes("invalid") ||
+      lower.includes("fail") ||
       lower.includes("limit")
     ) {
       return data.message;
     }
   }
-  
+
   function scanForErrors(obj: any, depth = 0): string | null {
     if (depth > 3) return null;
-    
+
     for (const key in obj) {
       const value = obj[key];
       if (typeof value === "string") {
@@ -202,10 +184,10 @@ function detectApiError(data: any): string | null {
     }
     return null;
   }
-  
+
   const deepError = scanForErrors(data);
   if (deepError) return deepError;
-  
+
   return null;
 }
 
@@ -290,12 +272,8 @@ export default function EditWidgetModal({
       return;
     }
 
-   
-    console.log("🔍 Raw API Response:", res.data);
-    
     const rawError = detectApiError(res.data);
     if (rawError) {
-      console.log("❌ Raw error detected:", rawError);
       setTesting(false);
       setTestOk(false);
       setTestMsg(`${rawError}`);
@@ -303,11 +281,9 @@ export default function EditWidgetModal({
     }
 
     const normalized = normalizeData(res.data);
-    console.log("🔧 Normalized data:", normalized);
-    
+
     const normalizedError = detectApiError(normalized);
     if (normalizedError) {
-      console.log("❌ Normalized error detected:", normalizedError);
       setTesting(false);
       setTestOk(false);
       setTestMsg(`${normalizedError}`);
@@ -316,7 +292,7 @@ export default function EditWidgetModal({
 
     const topKeys = Object.keys(normalized || {});
     const hasOnlyMetadata = topKeys.length === 1 && (
-      topKeys[0] === 'meta_data' || 
+      topKeys[0] === 'meta_data' ||
       topKeys[0] === 'metadata' ||
       topKeys[0].includes('meta')
     );
@@ -335,7 +311,6 @@ export default function EditWidgetModal({
       return;
     }
 
-    console.log("✅ API test passed");
     setRawJson(normalized);
     setTestOk(true);
     setTestMsg(`API connection successful! ${topKeys.length} top-level fields found.`);
@@ -394,308 +369,349 @@ export default function EditWidgetModal({
   }
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-[#0f172a] p-6 rounded-xl w-full max-w-xl max-h-[90vh] overflow-y-auto shadow-lg border border-gray-700">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-semibold">Edit Widget</h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-white">✖</button>
-        </div>
-
-        <label className="text-sm text-gray-300">Widget Name</label>
-        <input
-          type="text"
-          className="w-full mt-1 mb-4 p-2 rounded bg-gray-800 border border-gray-700 text-white"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-        />
-
-        <label className="text-sm text-gray-300">API URL</label>
-        <div className="flex gap-2 mt-1 mb-2">
-          <input
-            type="text"
-            className="w-full p-2 rounded bg-gray-800 border border-gray-700 text-white"
-            value={apiUrl}
-            onChange={(e) => setApiUrl(e.target.value)}
-          />
-          <button
-            className="px-4 py-2 bg-blue-600 rounded hover:bg-blue-700 whitespace-nowrap"
-            onClick={testApi}
-            disabled={!apiUrl || testing}
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
+      <div className="bg-[var(--card-bg)] p-6 rounded-xl w-full max-w-xl max-h-[90vh] overflow-y-auto shadow-2xl border border-[var(--card-border)]">
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="text-xl font-bold text-[var(--text-primary)]">Edit Widget</h2>
+          <button 
+            onClick={onClose} 
+            className="p-2 rounded-lg hover:bg-[var(--hover-bg)] text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
           >
-            {testing ? "Testing..." : "Test"}
+            ✖
           </button>
         </div>
 
-        {testOk === true && (
-          <div className="text-xs text-green-400 mb-3 flex items-center gap-2">
-            <span>🟢</span>
-            <span>{testMsg}</span>
-          </div>
-        )}
-        {testOk === false && (
-          <div className="text-xs text-red-400 mb-3 flex items-center gap-2">
-            <span>🔴</span>
-            <span>{testMsg}</span>
-          </div>
-        )}
-
-        <label className="text-sm text-gray-300">Refresh Interval (seconds)</label>
-        <input
-          type="number"
-          className="w-full mt-1 mb-4 p-2 rounded bg-gray-800 border border-gray-700 text-white"
-          value={refreshSeconds}
-          onChange={(e) => setRefreshSeconds(Math.max(5, Number(e.target.value || 30)))}
-          min={5}
-        />
-
-        <label className="text-sm text-gray-300">Display Mode</label>
-        <div className="flex gap-2 mt-1 mb-3">
-          {(["card", "table", "chart"] as DisplayMode[]).map((m) => (
-            <button
-              key={m}
-              className={`px-3 py-2 rounded border text-sm ${displayMode === m ? "bg-green-700 border-green-500" : "bg-gray-800 border-gray-700"}`}
-              onClick={() => setDisplayMode(m)}
-            >
-              {m[0].toUpperCase() + m.slice(1)}
-            </button>
-          ))}
-        </div>
-
-        {displayMode === "card" && (
-          <>
-            <div className="flex items-center gap-3 mb-2">
-              <input
-                type="text"
-                placeholder="Search for fields..."
-                className="flex-1 p-2 rounded bg-gray-800 border border-gray-700 text-white"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
-              <label className="flex items-center gap-2 text-sm text-gray-300 whitespace-nowrap">
-                <input
-                  type="checkbox"
-                  checked={arraysOnly}
-                  onChange={(e) => setArraysOnly(e.target.checked)}
-                />
-                Arrays only
-              </label>
-            </div>
-
-            <div className="mb-3">
-              <div className="text-xs text-gray-400 mb-1">Available Fields</div>
-              <div className="max-h-44 overflow-auto rounded border border-gray-700 bg-gray-900">
-                {!rawJson && (
-                  <div className="p-3 text-xs text-gray-500">
-                    Test the API to load fields from the current URL.
-                  </div>
-                )}
-                {rawJson && availableFields.length === 0 && (
-                  <div className="p-3 text-xs text-gray-500">No fields matched.</div>
-                )}
-                {rawJson && availableFields.length > 0 && (
-                  <ul className="divide-y divide-gray-800">
-                    {availableFields.map((f) => (
-                      <li key={f.path} className="flex items-center justify-between p-2 hover:bg-gray-800">
-                        <div className="min-w-0 flex-1">
-                          <div className="text-sm text-white font-mono truncate">{f.path}</div>
-                          <div className="text-xs text-gray-400">
-                            {f.type}
-                            {f.sample ? ` • ${f.sample}` : ""}
-                          </div>
-                        </div>
-                        <button
-                          className="text-xs px-2 py-1 bg-gray-700 hover:bg-gray-600 rounded ml-2"
-                          onClick={() => addField(f.path)}
-                        >
-                          +
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-            </div>
-
-            <div className="mb-4">
-              <div className="text-xs text-gray-400 mb-1">Selected Fields</div>
-              <div className="flex flex-wrap gap-2">
-                {selectedFields.map((f) => (
-                  <span
-                    key={f}
-                    className="inline-flex items-center gap-2 px-2 py-1 rounded bg-gray-800 border border-gray-700 text-xs text-white"
-                  >
-                    <span className="font-mono">{f}</span>
-                    <button
-                      className="text-gray-400 hover:text-white"
-                      onClick={() => removeField(f)}
-                    >
-                      ✕
-                    </button>
-                  </span>
-                ))}
-                {selectedFields.length === 0 && (
-                  <span className="text-xs text-gray-500">No fields selected.</span>
-                )}
-              </div>
-            </div>
-          </>
-        )}
-
-        {displayMode === "table" && (
-          <div className="space-y-4">
-            <div>
-              <div className="text-sm text-gray-300 mb-1">Choose array for table rows</div>
-              <div className="rounded border border-gray-700 bg-gray-900 p-3 max-h-48 overflow-auto">
-                {!rawJson && (
-                  <div className="text-xs text-gray-500">
-                    Test the API first to load available arrays.
-                  </div>
-                )}
-                {rawJson && arrayFieldOptions.length === 0 && (
-                  <div className="text-xs text-red-400">
-                    No array fields were detected in this payload.
-                  </div>
-                )}
-                {arrayFieldOptions.length > 0 && (
-                  <div className="flex flex-wrap gap-2">
-                    {arrayFieldOptions.map((field) => {
-                      const active = tableArrayPath === field.path;
-                      return (
-                        <button
-                          key={field.path}
-                          type="button"
-                          className={`px-2 py-1 rounded border text-xs font-mono text-left ${
-                            active
-                              ? "bg-green-700 border-green-500 text-white"
-                              : "bg-gray-800 border-gray-600 text-gray-200 hover:bg-gray-700"
-                          }`}
-                          onClick={() => setTableArrayPath(field.path)}
-                        >
-                          <div className="truncate max-w-[180px]">{field.path}</div>
-                          {field.sample && (
-                            <div className="text-[10px] text-gray-400 truncate">{field.sample}</div>
-                          )}
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-              <p className="text-xs text-gray-500 mt-1">
-                Click an array to use it for the table. You can override manually below.
-              </p>
-            </div>
-
-            <div>
-              <label className="text-sm text-gray-300">Custom array path (optional)</label>
-              <input
-                type="text"
-                placeholder="e.g. data.rates"
-                className="w-full mt-1 p-2 rounded bg-gray-800 border border-gray-700 text-white"
-                value={tableArrayPath}
-                onChange={(e) => setTableArrayPath(e.target.value)}
-              />
-            </div>
-
-            <div>
-              <div className="text-sm text-gray-300 mb-1">Columns detected from sample</div>
-              <div className="rounded border border-gray-700 bg-gray-900 p-3 space-y-2">
-                {!tableArrayPath && (
-                  <div className="text-xs text-gray-500">Select an array path to preview columns.</div>
-                )}
-                {tableArrayPath && tableAvailableColumns.length === 0 && (
-                  <div className="text-xs text-red-400">
-                    Couldn't find any fields at that path.
-                  </div>
-                )}
-                {tableAvailableColumns.length > 0 && (
-                  <div className="flex flex-wrap gap-2">
-                    {tableAvailableColumns.map((key) => {
-                      const active = tableSelectedColumns.includes(key);
-                      return (
-                        <button
-                          key={key}
-                          type="button"
-                          className={`px-2 py-1 rounded text-xs font-mono border ${
-                            active
-                              ? "bg-green-700 border-green-500 text-white"
-                              : "bg-gray-800 border-gray-600 text-gray-200 hover:bg-gray-700"
-                          }`}
-                          onClick={() => toggleTableColumn(key)}
-                        >
-                          {key}
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-              <p className="text-xs text-gray-500 mt-1">
-                Click to pick the fields you want to display. Labels are autogenerated.
-              </p>
-            </div>
-
-            <div>
-              <label className="text-sm text-gray-300">Page size</label>
-              <input
-                type="number"
-                className="w-full mt-1 p-2 rounded bg-gray-800 border border-gray-700 text-white"
-                value={tablePageSize}
-                onChange={(e) => setTablePageSize(Math.max(5, Number(e.target.value || 10)))}
-                min={5}
-              />
-            </div>
-          </div>
-        )}
-
-        {displayMode === "chart" && (
-          <div className="space-y-3">
-            <label className="text-sm text-gray-300">Array path for points or object map</label>
+        <div className="space-y-4">
+          {/* Widget Name */}
+          <div>
+            <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1.5">Widget Name</label>
             <input
               type="text"
-              placeholder="e.g. data.bpi or data.prices"
-              className="w-full p-2 rounded bg-gray-800 border border-gray-700 text-white"
-              value={chartArrayPath}
-              onChange={(e) => setChartArrayPath(e.target.value)}
+              className="w-full p-3 rounded-lg bg-[var(--input-bg)] border border-[var(--input-border)] text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Enter widget name"
             />
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="text-sm text-gray-300">X key</label>
-                <input
-                  type="text"
-                  placeholder="time or x"
-                  className="w-full p-2 rounded bg-gray-800 border border-gray-700 text-white"
-                  value={chartXKey}
-                  onChange={(e) => setChartXKey(e.target.value)}
-                />
-              </div>
-              <div>
-                <label className="text-sm text-gray-300">Y key</label>
-                <input
-                  type="text"
-                  placeholder="price or y"
-                  className="w-full p-2 rounded bg-gray-800 border border-gray-700 text-white"
-                  value={chartYKey}
-                  onChange={(e) => setChartYKey(e.target.value)}
-                />
-              </div>
-            </div>
-            <div className="text-xs text-gray-400">
-              If the path points to an object like {"{ date: price }"}, use x: "x", y: "y".
+          </div>
+
+          {/* API URL */}
+          <div>
+            <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1.5">API URL</label>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                className="flex-1 p-3 rounded-lg bg-[var(--input-bg)] border border-[var(--input-border)] text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                value={apiUrl}
+                onChange={(e) => setApiUrl(e.target.value)}
+                placeholder="https://api.example.com/data"
+              />
+              <button
+                className="px-5 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-600/50 text-white rounded-lg font-medium whitespace-nowrap transition-colors"
+                onClick={testApi}
+                disabled={!apiUrl || testing}
+              >
+                {testing ? "Testing..." : "Test"}
+              </button>
             </div>
           </div>
-        )}
 
-        <div className="flex justify-end gap-3 mt-4">
-          <button onClick={onClose} className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded">
+          {/* Test Result */}
+          {testOk === true && (
+            <div className="flex items-center gap-2 p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-lg">
+              <span className="text-emerald-500">✓</span>
+              <span className="text-sm text-emerald-600 dark:text-emerald-400">{testMsg}</span>
+            </div>
+          )}
+          {testOk === false && (
+            <div className="flex items-center gap-2 p-3 bg-red-500/10 border border-red-500/20 rounded-lg">
+              <span className="text-red-500">✗</span>
+              <span className="text-sm text-red-600 dark:text-red-400">{testMsg}</span>
+            </div>
+          )}
+
+          {/* Refresh Interval */}
+          <div>
+            <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1.5">Refresh Interval (seconds)</label>
+            <input
+              type="number"
+              className="w-full p-3 rounded-lg bg-[var(--input-bg)] border border-[var(--input-border)] text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+              value={refreshSeconds}
+              onChange={(e) => setRefreshSeconds(Math.max(5, Number(e.target.value || 30)))}
+              min={5}
+            />
+          </div>
+
+          {/* Display Mode */}
+          <div>
+            <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">Display Mode</label>
+            <div className="flex gap-2">
+              {(["card", "table", "chart"] as DisplayMode[]).map((m) => (
+                <button
+                  key={m}
+                  className={`flex-1 px-4 py-2.5 rounded-lg border text-sm font-medium transition-all ${
+                    displayMode === m 
+                      ? "bg-emerald-600 border-emerald-500 text-white shadow-lg shadow-emerald-500/20" 
+                      : "bg-[var(--input-bg)] border-[var(--input-border)] text-[var(--text-secondary)] hover:bg-[var(--hover-bg)] hover:border-[var(--text-muted)]"
+                  }`}
+                  onClick={() => setDisplayMode(m)}
+                >
+                  {m === "card" && "💳 "}
+                  {m === "table" && "📊 "}
+                  {m === "chart" && "📈 "}
+                  {m[0].toUpperCase() + m.slice(1)}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Card Mode Fields */}
+          {displayMode === "card" && (
+            <div className="space-y-4 pt-2">
+              <div className="flex items-center gap-3">
+                <input
+                  type="text"
+                  placeholder="Search for fields..."
+                  className="flex-1 p-3 rounded-lg bg-[var(--input-bg)] border border-[var(--input-border)] text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                />
+                <label className="flex items-center gap-2 text-sm text-[var(--text-secondary)] whitespace-nowrap cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={arraysOnly}
+                    onChange={(e) => setArraysOnly(e.target.checked)}
+                    className="w-4 h-4 rounded border-[var(--input-border)] text-blue-600 focus:ring-blue-500"
+                  />
+                  Arrays only
+                </label>
+              </div>
+
+              <div>
+                <div className="text-xs font-medium text-[var(--text-muted)] uppercase tracking-wide mb-2">Available Fields</div>
+                <div className="max-h-44 overflow-auto rounded-lg border border-[var(--card-border)] bg-[var(--hover-bg)]">
+                  {!rawJson && (
+                    <div className="p-4 text-sm text-[var(--text-muted)] text-center">
+                      Test the API to load fields from the current URL.
+                    </div>
+                  )}
+                  {rawJson && availableFields.length === 0 && (
+                    <div className="p-4 text-sm text-[var(--text-muted)] text-center">No fields matched.</div>
+                  )}
+                  {rawJson && availableFields.length > 0 && (
+                    <ul className="divide-y divide-[var(--card-border)]">
+                      {availableFields.map((f) => (
+                        <li key={f.path} className="flex items-center justify-between p-3 hover:bg-[var(--card-bg)] transition-colors">
+                          <div className="min-w-0 flex-1">
+                            <div className="text-sm text-[var(--text-primary)] font-mono truncate">{f.path}</div>
+                            <div className="text-xs text-[var(--text-muted)]">
+                              {f.type}
+                              {f.sample ? ` • ${f.sample}` : ""}
+                            </div>
+                          </div>
+                          <button
+                            className="text-xs px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-md ml-2 font-medium transition-colors"
+                            onClick={() => addField(f.path)}
+                          >
+                            + Add
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              </div>
+
+              <div>
+                <div className="text-xs font-medium text-[var(--text-muted)] uppercase tracking-wide mb-2">Selected Fields</div>
+                <div className="flex flex-wrap gap-2 min-h-[40px] p-3 rounded-lg border border-[var(--card-border)] bg-[var(--hover-bg)]">
+                  {selectedFields.map((f) => (
+                    <span
+                      key={f}
+                      className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-600/10 border border-blue-500/20 text-sm text-blue-600 dark:text-blue-400"
+                    >
+                      <span className="font-mono text-xs">{f}</span>
+                      <button
+                        className="hover:text-red-500 transition-colors"
+                        onClick={() => removeField(f)}
+                      >
+                        ✕
+                      </button>
+                    </span>
+                  ))}
+                  {selectedFields.length === 0 && (
+                    <span className="text-sm text-[var(--text-muted)]">No fields selected. Add fields from above.</span>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Table Mode Config */}
+          {displayMode === "table" && (
+            <div className="space-y-4 pt-2">
+              <div>
+                <div className="text-sm font-medium text-[var(--text-secondary)] mb-2">Choose array for table rows</div>
+                <div className="rounded-lg border border-[var(--card-border)] bg-[var(--hover-bg)] p-3 max-h-48 overflow-auto">
+                  {!rawJson && (
+                    <div className="text-sm text-[var(--text-muted)] text-center py-2">
+                      Test the API first to load available arrays.
+                    </div>
+                  )}
+                  {rawJson && arrayFieldOptions.length === 0 && (
+                    <div className="text-sm text-red-500 text-center py-2">
+                      No array fields were detected in this payload.
+                    </div>
+                  )}
+                  {arrayFieldOptions.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {arrayFieldOptions.map((field) => {
+                        const active = tableArrayPath === field.path;
+                        return (
+                          <button
+                            key={field.path}
+                            type="button"
+                            className={`px-3 py-2 rounded-lg border text-xs font-mono text-left transition-all ${
+                              active
+                                ? "bg-emerald-600 border-emerald-500 text-white shadow-lg shadow-emerald-500/20"
+                                : "bg-[var(--input-bg)] border-[var(--input-border)] text-[var(--text-primary)] hover:bg-[var(--card-bg)] hover:border-[var(--text-muted)]"
+                            }`}
+                            onClick={() => setTableArrayPath(field.path)}
+                          >
+                            <div className="truncate max-w-[180px]">{field.path}</div>
+                            {field.sample && (
+                              <div className={`text-[10px] truncate mt-0.5 ${active ? "text-emerald-200" : "text-[var(--text-muted)]"}`}>
+                                {field.sample}
+                              </div>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+                <p className="text-xs text-[var(--text-muted)] mt-2">
+                  Click an array to use it for the table. You can override manually below.
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1.5">Custom array path (optional)</label>
+                <input
+                  type="text"
+                  placeholder="e.g. data.rates"
+                  className="w-full p-3 rounded-lg bg-[var(--input-bg)] border border-[var(--input-border)] text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                  value={tableArrayPath}
+                  onChange={(e) => setTableArrayPath(e.target.value)}
+                />
+              </div>
+
+              <div>
+                <div className="text-sm font-medium text-[var(--text-secondary)] mb-2">Columns detected from sample</div>
+                <div className="rounded-lg border border-[var(--card-border)] bg-[var(--hover-bg)] p-3 space-y-2">
+                  {!tableArrayPath && (
+                    <div className="text-sm text-[var(--text-muted)] text-center py-2">Select an array path to preview columns.</div>
+                  )}
+                  {tableArrayPath && tableAvailableColumns.length === 0 && (
+                    <div className="text-sm text-red-500 text-center py-2">
+                      Couldn't find any fields at that path.
+                    </div>
+                  )}
+                  {tableAvailableColumns.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {tableAvailableColumns.map((key) => {
+                        const active = tableSelectedColumns.includes(key);
+                        return (
+                          <button
+                            key={key}
+                            type="button"
+                            className={`px-3 py-2 rounded-lg text-xs font-mono border transition-all ${
+                              active
+                                ? "bg-emerald-600 border-emerald-500 text-white shadow-lg shadow-emerald-500/20"
+                                : "bg-[var(--input-bg)] border-[var(--input-border)] text-[var(--text-primary)] hover:bg-[var(--card-bg)] hover:border-[var(--text-muted)]"
+                            }`}
+                            onClick={() => toggleTableColumn(key)}
+                          >
+                            {key}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+                <p className="text-xs text-[var(--text-muted)] mt-2">
+                  Click to pick the fields you want to display. Labels are autogenerated.
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1.5">Page size</label>
+                <input
+                  type="number"
+                  className="w-full p-3 rounded-lg bg-[var(--input-bg)] border border-[var(--input-border)] text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                  value={tablePageSize}
+                  onChange={(e) => setTablePageSize(Math.max(5, Number(e.target.value || 10)))}
+                  min={5}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Chart Mode Config */}
+          {displayMode === "chart" && (
+            <div className="space-y-4 pt-2">
+              <div>
+                <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1.5">Array path for points or object map</label>
+                <input
+                  type="text"
+                  placeholder="e.g. data.bpi or data.prices"
+                  className="w-full p-3 rounded-lg bg-[var(--input-bg)] border border-[var(--input-border)] text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                  value={chartArrayPath}
+                  onChange={(e) => setChartArrayPath(e.target.value)}
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1.5">X key</label>
+                  <input
+                    type="text"
+                    placeholder="time or x"
+                    className="w-full p-3 rounded-lg bg-[var(--input-bg)] border border-[var(--input-border)] text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                    value={chartXKey}
+                    onChange={(e) => setChartXKey(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1.5">Y key</label>
+                  <input
+                    type="text"
+                    placeholder="price or y"
+                    className="w-full p-3 rounded-lg bg-[var(--input-bg)] border border-[var(--input-border)] text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                    value={chartYKey}
+                    onChange={(e) => setChartYKey(e.target.value)}
+                  />
+                </div>
+              </div>
+              <div className="text-xs text-[var(--text-muted)] bg-[var(--hover-bg)] p-3 rounded-lg border border-[var(--card-border)]">
+                💡 If the path points to an object like <code className="bg-[var(--card-bg)] px-1 py-0.5 rounded">{"{ date: price }"}</code>, use x: "x", y: "y".
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Action Buttons */}
+        <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-[var(--card-border)]">
+          <button 
+            onClick={onClose} 
+            className="px-5 py-2.5 bg-[var(--hover-bg)] hover:bg-[var(--card-border)] text-[var(--text-secondary)] rounded-lg font-medium transition-colors"
+          >
             Cancel
           </button>
           <button
-            className="px-4 py-2 bg-green-600 hover:bg-green-700 rounded text-white"
+            className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-600/50 disabled:cursor-not-allowed rounded-lg text-white font-medium transition-colors shadow-lg shadow-emerald-500/20"
             onClick={save}
             disabled={!name || !apiUrl}
           >
-            Save
+            Save Changes
           </button>
         </div>
       </div>

@@ -92,7 +92,7 @@ export default function TableWidget({ data, config }: { data: any; config: Table
         <input
           type="text"
           placeholder="Search table..."
-          className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded text-sm text-white placeholder-gray-500"
+          className="w-full px-3 py-2 bg-[var(--input-bg)] border border-[var(--input-border)] rounded text-sm text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
           value={search}
           onChange={(e) => {
             setSearch(e.target.value);
@@ -101,75 +101,79 @@ export default function TableWidget({ data, config }: { data: any; config: Table
         />
       </div>
 
-      <div className="flex-1 overflow-auto mb-3">
+      <div className="flex-1 overflow-auto border border-[var(--card-border)] rounded-lg">
         <table className="w-full text-sm">
-          <thead className="bg-gray-800 sticky top-0">
+          <thead className="bg-[var(--card-header)] sticky top-0">
             <tr>
               {config.columns.map((col) => (
                 <th
                   key={col.key}
-                  className="px-3 py-2 text-left text-xs font-medium text-gray-400 uppercase tracking-wider border-b border-gray-700"
+                  className="px-3 py-2 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider border-b border-[var(--card-border)]"
                 >
                   {col.label}
                 </th>
               ))}
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-800">
-            {pageData.length === 0 ? (
-              <tr>
-                <td colSpan={config.columns.length} className="px-3 py-4 text-center text-gray-500">
-                  {search ? "No matching results" : "No data available"}
-                </td>
+          <tbody className="divide-y divide-[var(--card-border)]">
+            {pageData.map((row: any, i: number) => (
+              <tr key={i} className="hover:bg-[var(--hover-bg)] transition-colors">
+                {config.columns.map((col) => {
+                  const val = row[col.key];
+                  let display: string;
+                  if (val === null || val === undefined) {
+                    display = "-";
+                  } else if (typeof val === "number") {
+                    display = val.toLocaleString(undefined, { maximumFractionDigits: 6 });
+                  } else if (typeof val === "object") {
+                    display = JSON.stringify(val).slice(0, 50);
+                  } else {
+                    display = String(val);
+                  }
+                  return (
+                    <td key={col.key} className="px-3 py-2 text-[var(--text-primary)]">
+                      {display}
+                    </td>
+                  );
+                })}
               </tr>
-            ) : (
-              pageData.map((row: any, idx: number) => (
-                <tr key={idx} className="hover:bg-gray-800/50">
-                  {config.columns.map((col) => {
-                    const val = row[col.key];
-                    return (
-                      <td key={col.key} className="px-3 py-2 text-white whitespace-nowrap">
-                        {val !== undefined && val !== null
-                          ? typeof val === "object"
-                            ? JSON.stringify(val).slice(0, 50)
-                            : typeof val === "number" && val % 1 !== 0
-                            ? val.toFixed(2)
-                            : String(val)
-                          : "—"}
-                      </td>
-                    );
-                  })}
-                </tr>
-              ))
-            )}
+            ))}
           </tbody>
         </table>
+
+        {pageData.length === 0 && (
+          <div className="p-4 text-center text-[var(--text-muted)]">
+            No data found
+          </div>
+        )}
       </div>
 
-      <div className="flex items-center justify-between text-xs text-gray-400 pt-2 border-gray-800">
-        <span>
-          {startIdx + 1}-{Math.min(endIdx, filteredArray.length)} of {filteredArray.length} items
-        </span>
-        <div className="flex gap-2">
-          <button
-            className="px-3 py-1 bg-gray-800 hover:bg-gray-700 rounded disabled:opacity-50 disabled:cursor-not-allowed"
-            onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-            disabled={currentPage === 1}
-          >
-            ← Prev
-          </button>
-          <span className="px-3 py-1 bg-gray-800 rounded">
-            Page {currentPage} of {totalPages || 1}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between mt-3 text-sm">
+          <span className="text-[var(--text-muted)]">
+            Showing {startIdx + 1}-{Math.min(endIdx, filteredArray.length)} of {filteredArray.length}
           </span>
-          <button
-            className="px-3 py-1 bg-gray-800 hover:bg-gray-700 rounded disabled:opacity-50 disabled:cursor-not-allowed"
-            onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-            disabled={currentPage >= totalPages}
-          >
-            Next →
-          </button>
+          <div className="flex gap-2">
+            <button
+              className="px-3 py-1 bg-[var(--card-bg)] border border-[var(--card-border)] rounded hover:bg-[var(--hover-bg)] disabled:opacity-50 text-[var(--text-primary)] transition-colors"
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+            >
+              ← Prev
+            </button>
+            <span className="px-3 py-1 text-[var(--text-secondary)]">
+              {currentPage} / {totalPages}
+            </span>
+            <button
+              className="px-3 py-1 bg-[var(--card-bg)] border border-[var(--card-border)] rounded hover:bg-[var(--hover-bg)] disabled:opacity-50 text-[var(--text-primary)] transition-colors"
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+              disabled={currentPage === totalPages}
+            >
+              Next →
+            </button>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

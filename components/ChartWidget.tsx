@@ -43,7 +43,6 @@ function parseDate(dateStr: string): Date | null {
   return null;
 }
 
-
 function getIntervalDays(interval: ChartInterval): number {
   switch (interval) {
     case "1d": return 1;
@@ -144,6 +143,12 @@ export default function ChartWidget({ data, config }: { data: any; config?: Char
     return filtered;
   }, [allPoints, interval, xKey, yKey, isArraySeries]);
 
+  const hasDateData = useMemo(() => {
+    if (!isArraySeries || allPoints.length === 0) return false;
+    const sampleDate = parseDate(allPoints[0]?.[xKey]);
+    return sampleDate !== null;
+  }, [isArraySeries, allPoints, xKey]);
+
   const formatXAxis = (value: string) => {
     const date = parseDate(value);
     if (!date) return value;
@@ -179,8 +184,8 @@ export default function ChartWidget({ data, config }: { data: any; config?: Char
       : label;
 
     return (
-      <div className="bg-gray-900 border border-gray-700 rounded p-2 text-sm">
-        <p className="text-gray-400 mb-1">{formattedDate}</p>
+      <div className="bg-[var(--card-bg)] border border-[var(--card-border)] rounded p-2 text-sm shadow-lg">
+        <p className="text-[var(--text-muted)] mb-1">{formattedDate}</p>
         {payload.map((entry: any, index: number) => (
           <p key={index} style={{ color: entry.color }}>
             {entry.name}: {tooltipFormatter(entry.value)}
@@ -192,7 +197,7 @@ export default function ChartWidget({ data, config }: { data: any; config?: Char
 
   return (
     <div className="flex h-full flex-col gap-3">
-      {isArraySeries && (
+      {isArraySeries && hasDateData && (
         <div className="flex items-center gap-2">
           {(["1d", "1w", "1m"] as ChartInterval[]).map((i) => (
             <button
@@ -200,14 +205,14 @@ export default function ChartWidget({ data, config }: { data: any; config?: Char
               className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${
                 interval === i
                   ? "bg-green-600 text-white border border-green-500"
-                  : "bg-gray-800 text-gray-300 border border-gray-700 hover:bg-gray-700"
+                  : "bg-[var(--hover-bg)] text-[var(--text-secondary)] border border-[var(--card-border)] hover:bg-[var(--card-border)]"
               }`}
               onClick={() => setInterval(i)}
             >
               {i === "1d" ? "1 Day" : i === "1w" ? "1 Week" : "1 Month"}
             </button>
           ))}
-          <span className="text-xs text-gray-500 ml-2">
+          <span className="text-xs text-[var(--text-muted)] ml-2">
             {points.length} points
           </span>
         </div>
@@ -217,17 +222,17 @@ export default function ChartWidget({ data, config }: { data: any; config?: Char
         <ResponsiveContainer width="100%" height="100%">
           {isArraySeries ? (
             <LineChart data={points} margin={{ top: 10, right: 16, bottom: 20, left: 10 }}>
-              <CartesianGrid stroke="#374151" strokeDasharray="4 4" />
+              <CartesianGrid stroke="var(--card-border)" strokeDasharray="4 4" />
               <XAxis 
                 dataKey={xKey} 
-                stroke="#9ca3af" 
-                tick={{ fill: "#9ca3af", fontSize: 11 }}
+                stroke="var(--text-muted)" 
+                tick={{ fill: "var(--text-muted)", fontSize: 11 }}
                 tickFormatter={formatXAxis}
                 interval="preserveStartEnd"
               />
-              <YAxis stroke="#9ca3af" tickFormatter={yTickFormatter} width={60} />
+              <YAxis stroke="var(--text-muted)" tick={{ fill: "var(--text-muted)" }} tickFormatter={yTickFormatter} width={60} />
               <Tooltip content={<CustomTooltip />} />
-              <Legend wrapperStyle={{ color: "#9ca3af" }} />
+              <Legend wrapperStyle={{ color: "var(--text-muted)" }} />
               <Line 
                 type="monotone" 
                 dataKey={yKey} 
@@ -239,17 +244,17 @@ export default function ChartWidget({ data, config }: { data: any; config?: Char
             </LineChart>
           ) : (
             <BarChart data={points} layout="vertical" margin={{ top: 10, right: 16, bottom: 10, left: 80 }} barCategoryGap="20%">
-              <CartesianGrid stroke="#374151" strokeDasharray="4 4" />
-              <XAxis type="number" stroke="#9ca3af" tickFormatter={yTickFormatter} />
+              <CartesianGrid stroke="var(--card-border)" strokeDasharray="4 4" />
+              <XAxis type="number" stroke="var(--text-muted)" tick={{ fill: "var(--text-muted)" }} tickFormatter={yTickFormatter} />
               <YAxis
                 type="category"
                 dataKey={xKey}
-                stroke="#9ca3af"
-                tick={{ fill: "#9ca3af", fontSize: 12 }}
+                stroke="var(--text-muted)"
+                tick={{ fill: "var(--text-muted)", fontSize: 12 }}
                 width={70}
               />
               <Tooltip content={<CustomTooltip />} />
-              <Legend wrapperStyle={{ color: "#9ca3af" }} />
+              <Legend wrapperStyle={{ color: "var(--text-muted)" }} />
               <Bar dataKey={yKey} fill="#10b981" radius={[0, 4, 4, 0]} />
             </BarChart>
           )}
@@ -257,13 +262,8 @@ export default function ChartWidget({ data, config }: { data: any; config?: Char
       </div>
 
       {points.length === 0 && (
-        <div className="text-sm text-gray-400 text-center py-4">
+        <div className="text-sm text-[var(--text-muted)] text-center py-4">
           No data available for the selected time range.
-          {allPoints.length > 0 && (
-            <span className="block mt-1">
-              Try selecting a different interval or check if the data has dates.
-            </span>
-          )}
         </div>
       )}
     </div>
